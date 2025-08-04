@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kubernetes Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1867b7;
+      --secondary: #A8A5E6;
+      --accent: #FF7675;
+      --bg: #0F0F1E;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --sidebar-bg: rgba(16, 16, 32, 0.95);
+      --text-color: #fff;
+      --input-bg: rgba(0, 0, 0, 0.3);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --nav-hover: rgba(108, 92, 231, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      --table-bg: rgba(0, 0, 0, 0.3);
+      --scrollbar-thumb: rgba(108, 92, 231, 0.5);
+      --scrollbar-track: transparent;
+      --pagination-active: #1867b7;
+      --pagination-hover: rgba(24, 103, 183, 0.1);
+      --chart-bg: rgba(0, 0, 0, 0.3);
+      --chart-text: #fff;
+      --chart-grid: rgba(255, 255, 255, 0.1);
+      --chart-legend-text: #fff;
+    }
+
+    .light-mode {
+      --primary: #1867b7;
+      --secondary: #7986CB;
+      --accent: #FF5252;
+      --bg: #f5f5f5;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --sidebar-bg: rgba(255, 255, 255, 0.95);
+      --text-color: #333;
+      --input-bg: rgba(0, 0, 0, 0.05);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --nav-hover: rgba(92, 107, 192, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+      --table-bg: #fff;
+      --scrollbar-thumb: rgba(92, 107, 192, 0.5);
+      --pagination-hover: rgba(24, 103, 183, 0.05);
+      --chart-bg: #fff;
+      --chart-text: #333;
+      --chart-grid: rgba(0, 0, 0, 0.1);
+      --chart-legend-text: #333;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      transition: all 0.3s ease;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      padding: 2rem 1.5rem;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar h1 {
+      font-size: 1.8rem;
+      margin-bottom: 2.5rem;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .nav-links {
+      flex-grow: 1;
+    }
+
+    .nav-link {
+      color: var(--text-color);
+      opacity: 0.9;
+      text-decoration: none;
+      margin: 0.8rem 0;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover {
+      background: var(--nav-hover);
+      transform: translateX(8px);
+      opacity: 1;
+    }
+
+    .nav-link:hover::before {
+      width: 100%;
+    }
+
+    .theme-toggle {
+      background: var(--card-bg);
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: auto;
+      margin-bottom: 1rem;
+    }
+
+    .theme-toggle:hover {
+      background: var(--nav-hover);
+    }
+
+    .copyright {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.6;
+      text-align: center;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      margin-left: 280px;
+      min-height: 100vh;
+      padding: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 2.5rem;
+      box-shadow: var(--shadow);
+      width: 100%;
+      transition: all 0.3s ease;
+      margin-bottom: 2rem;
+    }
+
+    .card h2 {
+      margin-bottom: 2rem;
+      text-align: center;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Events Table Styles */
+    .events-controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: center;
+    }
+
+    .events-controls select {
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--text-color);
+      font-size: 0.9rem;
+      flex-grow: 1;
+      max-width: 300px;
+      appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1rem;
+    }
+
+    .events-controls button {
+      padding: 0.8rem 1.5rem;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .events-controls button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4);
+    }
+
+    .table-container {
+      max-height: calc(100vh - 300px);
+      overflow: auto;
+      border: 1px solid var(--border-color);
+      background: var(--table-bg);
+      border-radius: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .table-container::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 10px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 10px;
+      border: 2px solid var(--table-bg);
+    }
+
+    .table-container::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 0.8rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--nav-hover);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(12px);
+    }
+
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .light-mode tr:nth-child(even) {
+      background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    /* Pagination Styles */
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1.5rem;
+      padding: 0.5rem 0;
+    }
+
+    .pagination-info {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .pagination-btn {
+      padding: 0.5rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .pagination-btn:hover {
+      background: var(--pagination-hover);
+    }
+
+    .pagination-btn.active {
+      background: var(--pagination-active);
+      color: white;
+      border-color: var(--pagination-active);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .rows-per-page {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .rows-per-page select {
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      background: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .download-csv {
+      padding: 0.5rem 1rem;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+
+    .download-csv:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+    }
+
+    /* Notification Styles */
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 24px;
+      background: var(--card-bg);
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+
+    .notification.error {
+      border-left-color: var(--accent);
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 1.5rem;
+      }
+
+      .events-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .events-controls select {
+        max-width: 100%;
+      }
+
+      .pagination {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+      }
+
+      .rows-per-page {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+<div class="nav-links">
+      <h1>⚡ K8s Chaos</h1>
+      <a href="index.html" class="nav-link">
+        <span>📊 Chaos Graph</span>
+      </a>
+      <a href="kpi.html" class="nav-link active">
+        <span>📈 KPI Dashboard</span>
+      </a>
+      <a href="faultsinjections.html" class="nav-link">
+        <span>🧪 Fault Injection</span>
+      </a>
+      <a href="metrics-dash.html" class="nav-link">
+        <span>📏 CPU Usage</span>
+      </a>
+      <a href="metrics-system-usage.html" class="nav-link">
+        <span>🖥️ CPU System</span>
+      </a>
+      <a href="memory_working_set_bytes.html" class="nav-link">
+        <span>🎯 Active Memory</span>
+      </a>
+      <a href="Memory_RSS.html" class="nav-link">
+        <span>📍 Resident Memory</span>
+      </a>
+      <a href="container_network_receive_bytes.html" class="nav-link">
+        <span>🌐 Network Receive</span>
+      </a>
+      <a href="network_transmit_packets.html" class="nav-link">
+        <span>📡 Network Transmit</span>
+      </a>
+      
+      <a href="events.html" class="nav-link">
+        <span>📋 Events</span>
+      </a>
+    </div>
+    <button class="theme-toggle" id="themeToggle">
+      <span>🌓</span> <span>Toggle Theme</span>
+    </button>
+    <div class="copyright">© 2025 UPM Kubernetes Dashboard</div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <h2>📦 Kubernetes Pod Events</h2>
+      
+      <div class="events-controls">
+        <select id="namespace" onchange="loadEvents()">
+          <option value="" disabled selected>Select a namespace</option>
+        </select>
+        <button onclick="loadEvents()">Load Events</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Pod</th>
+              <th>Namespace</th>
+              <th>Reason</th>
+              <th>Message</th>
+              <th>Node</th>
+              <th>Host IP</th>
+              <th>Pod IP</th>
+              <th>Phase</th>
+            </tr>
+          </thead>
+          <tbody id="eventsTable">
+            <tr><td colspan="10">No events loaded. Select a namespace and click "Load Events".</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <div class="pagination-info" id="paginationInfo">Showing 0 of 0 entries</div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" id="firstPage" disabled>First</button>
+          <button class="pagination-btn" id="prevPage" disabled>Previous</button>
+          <div id="pageNumbers" class="pagination-controls"></div>
+          <button class="pagination-btn" id="nextPage" disabled>Next</button>
+          <button class="pagination-btn" id="lastPage" disabled>Last</button>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="rows-per-page">
+            <span>Rows:</span>
+            <select id="rowsPerPage" onchange="changeRowsPerPage()">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <button class="download-csv" onclick="downloadCSV()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      localStorage.setItem('lightMode', isLight);
+    });
+    if (localStorage.getItem('lightMode') === 'true') {
+      document.body.classList.add('light-mode');
+    }
+
+    // Pagination Variables
+    let currentPage = 1;
+    let rowsPerPage = 25;
+    let totalPages = 1;
+    let allEvents = [];
+
+    // Notification Function
+    function showNotification(message, isSuccess = true) {
+      const notification = document.createElement('div');
+      notification.className = `notification ${isSuccess ? '' : 'error'}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => document.body.removeChild(notification), 500);
+      }, 3000);
+    }
+
+    // Fetch namespaces on page load
+    async function fetchNamespaces() {
+      const url = 'http://raphtory03:9090/api/v1/label/namespace/values';
+      const namespaceSelect = document.getElementById('namespace');
+      namespaceSelect.innerHTML = '<option value="" disabled selected>Loading namespaces...</option>';
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || !data.data) {
+          console.error("No namespaces found.");
+          namespaceSelect.innerHTML = '<option value="" disabled selected>Error loading namespaces</option>';
+          showNotification("Error fetching namespaces.", false);
+          return;
+        }
+
+        namespaceSelect.innerHTML = '<option value="" disabled selected>Select a namespace</option>';
+        data.data.forEach(ns => {
+          const option = document.createElement('option');
+          option.value = ns;
+          option.textContent = ns;
+          namespaceSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error fetching namespaces:', error);
+        namespaceSelect.innerHTML = '<option value="" disabled selected>Error loading namespaces</option>';
+        showNotification("Error fetching namespaces.", false);
+      }
+    }
+
+    // Call fetchNamespaces when the page loads
+    document.addEventListener('DOMContentLoaded', fetchNamespaces);
+
+    // Events Loading
+    async function loadEvents() {
+      const ns = document.getElementById('namespace').value;
+      if (!ns) {
+        showNotification("Please select a namespace", false);
+        return;
+      }
+
+      const tbody = document.getElementById('eventsTable');
+      tbody.innerHTML = '<tr><td colspan="10">Loading events...</td></tr>';
+
+      try {
+        const response = await fetch(`/events?namespace=${encodeURIComponent(ns)}`);
+        if (!response.ok) throw new Error('Failed to fetch events');
+        
+        allEvents = await response.json();
+        currentPage = 1;
+        
+        if (allEvents.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10">No events found for this namespace.</td></tr>';
+          showNotification("No events found for this namespace.", false);
+          updatePaginationControls();
+          return;
+        }
+
+        updateTable();
+        showNotification("Events loaded successfully.", true);
+      } catch (error) {
+        console.error('Error loading events:', error);
+        tbody.innerHTML = `<tr><td colspan="10">Error loading events: ${error.message}</td></tr>`;
+        showNotification(`Error loading events: ${error.message}`, false);
+        updatePaginationControls();
+      }
+    }
+
+    // Update the table with current page data
+    function updateTable() {
+      const tbody = document.getElementById('eventsTable');
+      tbody.innerHTML = '';
+
+      if (allEvents.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10">No events available</td></tr>';
+        updatePaginationControls();
+        return;
+      }
+
+      // Calculate pagination
+      totalPages = Math.ceil(allEvents.length / rowsPerPage);
+      const startIdx = (currentPage - 1) * rowsPerPage;
+      const endIdx = startIdx + rowsPerPage;
+      const pageEvents = allEvents.slice(startIdx, endIdx);
+
+      // Populate table with current page data
+      pageEvents.forEach(e => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${e.timestamp || '-'}</td>
+          <td>${e.type || '-'}</td>
+          <td>${e.pod_name || '-'}</td>
+          <td>${e.namespace || '-'}</td>
+          <td>${e.reason || '-'}</td>
+          <td>${e.message || '-'}</td>
+          <td>${e.node_name || '-'}</td>
+          <td>${e.host_ip || '-'}</td>
+          <td>${e.pod_ip || '-'}</td>
+          <td>${e.phase || '-'}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      updatePaginationControls();
+    }
+
+    // Update pagination controls
+    function updatePaginationControls() {
+      totalPages = Math.ceil(allEvents.length / rowsPerPage);
+      
+      // Update pagination info
+      const startEntry = allEvents.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+      const endEntry = Math.min(currentPage * rowsPerPage, allEvents.length);
+      document.getElementById('paginationInfo').textContent = 
+        `Showing ${startEntry} to ${endEntry} of ${allEvents.length} entries`;
+      
+      // Update button states
+      document.getElementById('firstPage').disabled = currentPage <= 1;
+      document.getElementById('prevPage').disabled = currentPage <= 1;
+      document.getElementById('nextPage').disabled = currentPage >= totalPages;
+      document.getElementById('lastPage').disabled = currentPage >= totalPages;
+      
+      // Update page numbers
+      const pageNumbersContainer = document.getElementById('pageNumbers');
+      pageNumbersContainer.innerHTML = '';
+      
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+        pageBtn.textContent = i;
+        pageBtn.onclick = () => goToPage(i);
+        pageNumbersContainer.appendChild(pageBtn);
+      }
+    }
+
+    // Change rows per page
+    function changeRowsPerPage() {
+      rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+      currentPage = 1;
+      updateTable();
+    }
+
+    // Navigation functions
+    function goToPage(page) {
+      currentPage = page;
+      updateTable();
+    }
+
+    document.getElementById('firstPage').addEventListener('click', () => goToPage(1));
+    document.getElementById('prevPage').addEventListener('click', () => goToPage(currentPage - 1));
+    document.getElementById('nextPage').addEventListener('click', () => goToPage(currentPage + 1));
+    document.getElementById('lastPage').addEventListener('click', () => goToPage(totalPages));
+
+    // Download CSV
+    function downloadCSV() {
+      if (allEvents.length === 0) {
+        showNotification("No data available to download", false);
+        return;
+      }
+
+      // Create CSV header
+      const headers = ['Timestamp', 'Type', 'Pod', 'Namespace', 'Reason', 'Message', 'Node', 'Host IP', 'Pod IP', 'Phase'];
+      let csvContent = headers.join(',') + '\n';
+
+      // Add all data rows
+      allEvents.forEach(event => {
+        const row = [
+          `"${event.timestamp || ''}"`,
+          `"${event.type || ''}"`,
+          `"${event.pod_name || ''}"`,
+          `"${event.namespace || ''}"`,
+          `"${event.reason || ''}"`,
+          `"${(event.message || '').replace(/"/g, '""')}"`,
+          `"${event.node_name || ''}"`,
+          `"${event.host_ip || ''}"`,
+          `"${event.pod_ip || ''}"`,
+          `"${event.phase || ''}"`
+        ];
+        csvContent += row.join(',') + '\n';
+      });
+
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `k8s-events-${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showNotification("CSV download started", true);
+    }
+  </script>
+</body>
+</html>

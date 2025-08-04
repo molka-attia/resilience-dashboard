@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kubernetes Prometheus Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@2.0.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.0.0"></script>
+  <style>
+    :root {
+      --primary: #1867b7;
+      --secondary: #A8A5E6;
+      --accent: #FF7675;
+      --success: #28a745;
+      --warning: #ffc107;
+      --danger: #dc3545;
+      --info: #17a2b8;
+      --bg: #0F0F1E;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --sidebar-bg: rgba(16, 16, 32, 0.95);
+      --text-color: #fff;
+      --dark: #fff;
+      --light: #0F0F1E;
+      --gray: #d1d5db;
+      --input-bg: rgba(0, 0, 0, 0.3);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --nav-hover: rgba(108, 92, 231, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      --table-bg: rgba(0, 0, 0, 0.3);
+      --scrollbar-thumb: rgba(108, 92, 231, 0.5);
+      --scrollbar-track: transparent;
+      --pagination-active: #1867b7;
+      --pagination-hover: rgba(24, 103, 183, 0.1);
+      --chart-bg: rgba(0, 0, 0, 0.3);
+      --chart-text: #fff;
+      --chart-grid: rgba(255, 255, 255, 0.1);
+      --chart-legend-text: #fff;
+      --border-radius: 12px;
+      --primary-rgb: 58, 134, 255;
+    }
+
+    .light-mode {
+      --primary: #1867b7;
+      --secondary: #7986CB;
+      --accent: #FF5252;
+      --success: #388E3c;
+      --warning: #FFA000;
+      --bg: #f2f4f8;
+      --card-bg: #ffffff;
+      --sidebar-bg: #ffffff;
+      --text-color: #2c2c2c;
+      --input-bg: #f0f1f5;
+      --border-color: #d0d0d0;
+      --nav-hover: #e8eaf6;
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+      --table-bg: #fff;
+      --scrollbar-thumb: rgba(92, 107, 192, 0.5);
+      --pagination-hover: rgba(24, 103, 183, 0.05);
+      --chart-bg: #fff;
+      --chart-text: #333;
+      --chart-grid: rgba(0, 0, 0, 0.1);
+      --chart-legend-text: #333;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar {
+      width: 280px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      padding: 2rem 1.5rem;
+      position: fixed;
+      left: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 0px 20px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar h1 {
+      font-size: 1.8rem;
+      margin-bottom: 2.5rem;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .nav-links {
+      flex-grow: 1;
+    }
+
+    .nav-link {
+      color: var(--text-color);
+      opacity: 0.9;
+      text-decoration: none;
+      margin: 0.8rem 0;
+      padding: 0.8rem 1.2rem;
+      border-radius: var(--border-radius);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover {
+      background: var(--nav-hover);
+      transform: translateX(8px);
+      opacity: 1;
+    }
+
+    .nav-link:hover::before {
+      width: 100%;
+    }
+
+    .theme-toggle {
+      background: var(--card-bg);
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: var(--border-radius);
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: auto;
+      margin-bottom: 1rem;
+    }
+
+    .theme-toggle:hover {
+      background: var(--nav-hover);
+    }
+
+    .copyright {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.6;
+      text-align: center;
+    }
+
+    .main-content {
+      margin-left: 280px;
+      flex-grow: 1;
+      transition: all 0.3s ease;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 1.5rem 0;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    select, input[type="datetime-local"], input[type="number"] {
+      padding: 0.6rem 1rem;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      font-size: 0.9rem;
+      min-width: 200px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    select:hover, input[type="datetime-local"]:hover, input[type="number"]:hover {
+      border-color: var(--primary);
+    }
+
+    .header-theme-toggle {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .header-theme-toggle:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    main {
+      padding: 2rem 0;
+    }
+
+    .dashboard-title {
+      margin-bottom: 1.5rem;
+      font-size: 1.8rem;
+      color: var(--text-color);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.3s ease;
+      border: 1px solid var(--border-color);
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .card-btn {
+      background: none;
+      border: none;
+      color: var(--gray);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: color 0.2s ease;
+    }
+
+    .card-btn:hover {
+      color: var(--primary);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+
+    .form-container {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      display: grid;
+      gap: 0.5rem;
+      align-items: center;
+      grid-template-columns: auto 1fr;
+    }
+
+    .form-group label {
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .form-group select, .form-group input {
+      width: 100%;
+    }
+
+    .weight-group {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .weight-group.three-columns {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .result-box {
+      background: var(--input-bg);
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+    }
+
+    .result-box p {
+      margin: 0.5rem 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .result-box p strong {
+      color: var(--primary);
+    }
+
+    .submit-btn {
+      padding: 0.75rem 1.3rem;
+      border-radius: var(--border-radius);
+      font-weight: bold;
+      font-size: 0.97rem;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow);
+      width: 100%;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      opacity: 0.9;
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .error-message {
+      color: var(--danger);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      display: none;
+    }
+
+    .dependencies-card {
+      margin-top: 2rem;
+    }
+
+    .dependency-list {
+      list-style: none;
+    }
+
+    .dependency-item {
+      padding: 0.8rem 1rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 0.5rem;
+      background-color: var(--input-bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .dependency-item:hover {
+      background-color: var(--nav-hover);
+      transform: translateX(5px);
+    }
+
+    .dependency-label {
+      font-weight: 500;
+    }
+
+    .dependency-metrics {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .metric {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .metric-value {
+      font-weight: 600;
+    }
+
+    .requests {
+      color: var(--primary);
+    }
+
+    .errors {
+      color: var(--danger);
+    }
+
+    .latency {
+      color: var(--warning);
+    }
+
+    .status-badge {
+      padding: 0.3rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background-color: var(--success);
+      color: white;
+    }
+
+    .status-badge.warning {
+      background-color: var(--warning);
+      color: var(--dark);
+    }
+
+    .status-badge.danger {
+      background-color: var(--danger);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .action-buttons .btn {
+      padding: 0.75rem 1.3rem;
+      border-radius: var(--border-radius);
+      font-weight: bold;
+      font-size: 0.97rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      box-shadow: var(--shadow);
+    }
+
+    .action-buttons .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+    }
+
+    .action-buttons .btn-success {
+      background: linear-gradient(135deg, var(--success), #4CAF50);
+      color: white;
+    }
+
+    .action-buttons .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      opacity: 0.9;
+    }
+
+    .action-buttons .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .light-mode .action-buttons .btn {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .light-mode .action-buttons .btn:hover {
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .container.header-content {
+      width: 99%;
+      max-width: none;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .logo span {
+      font-size: 1.7rem;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .uptime-card {
+      grid-column: 1 / -1;
+      margin-top: 1rem;
+    }
+
+    .uptime-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .uptime-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background-color: rgba(var(--primary-rgb), 0.05);
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(var(--primary-rgb), 0.1);
+    }
+
+    .uptime-metric {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .uptime-metric.large {
+      padding: 1rem;
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+
+    .uptime-icon {
+      font-size: 1.8rem;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(var(--primary-rgb), 0.1);
+      border-radius: 50%;
+    }
+
+    .uptime-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--primary);
+    }
+
+    #unhealthyPods {
+      color: var(--danger);
+    }
+
+    .uptime-label {
+      font-size: 0.95rem;
+      color: var(--gray);
+      display: block;
+    }
+
+    @media (max-width: 1200px) {
+      .sidebar {
+        width: 240px;
+        padding: 1.5rem 1rem;
+      }
+      .main-content {
+        margin-left: 240px;
+      }
+    }
+
+    @media (max-width: 992px) {
+      .sidebar {
+        width: 220px;
+        padding: 1.2rem 0.8rem;
+      }
+      .main-content {
+        margin-left: 220px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 1rem;
+      }
+      .sidebar h1 {
+        width: 100%;
+        margin-bottom: 1rem;
+      }
+      .nav-links {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .nav-link {
+        margin: 0;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+      }
+      .theme-toggle {
+        margin: 0.5rem;
+        padding: 0.5rem 0.8rem;
+      }
+      .copyright {
+        display: none;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+      .controls {
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      select, input {
+        width: 100%;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .action-buttons {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .action-buttons .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .weight-group {
+        grid-template-columns: 1fr;
+      }
+      .weight-group.three-columns {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .nav-links {
+        flex-direction: column;
+        gap: 0;
+      }
+      .nav-link {
+        width: 100%;
+      }
+      .uptime-summary {
+        grid-template-columns: 1fr 1fr;
+      }
+      .uptime-metric.large {
+        padding: 0.8rem;
+      }
+      .uptime-value {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+<div class="nav-links">
+      <h1>⚡ K8s Chaos</h1>
+      <a href="index.html" class="nav-link">
+        <span>📊 Chaos Graph</span>
+      </a>
+      <a href="kpi.html" class="nav-link active">
+        <span>📈 KPI Dashboard</span>
+      </a>
+      <a href="faultsinjections.html" class="nav-link">
+        <span>🧪 Fault Injection</span>
+      </a>
+      <a href="metrics-dash.html" class="nav-link">
+        <span>📏 CPU Usage</span>
+      </a>
+      <a href="metrics-system-usage.html" class="nav-link">
+        <span>🖥️ CPU System</span>
+      </a>
+      <a href="memory_working_set_bytes.html" class="nav-link">
+        <span>🎯 Active Memory</span>
+      </a>
+      <a href="Memory_RSS.html" class="nav-link">
+        <span>📍 Resident Memory</span>
+      </a>
+      <a href="container_network_receive_bytes.html" class="nav-link">
+        <span>🌐 Network Receive</span>
+      </a>
+      <a href="network_transmit_packets.html" class="nav-link">
+        <span>📡 Network Transmit</span>
+      </a>
+      
+      <a href="events.html" class="nav-link">
+        <span>📋 Events</span>
+      </a>
+    </div>
+    <button class="theme-toggle" id="sidebarThemeToggle">
+      <span>🌓</span> <span>Toggle Theme</span>
+    </button>
+    <div class="copyright">© 2025 Kubernetes Dashboard</div>
+  </div>
+
+  <div class="main-content">
+    <div class="container header-content">
+      <div class="logo">
+        <span style="color: #2069b8">Kubernetes Observability Dashboard</span>
+      </div>
+      <div class="controls">
+        <select id="namespace"></select>
+        <button class="header-theme-toggle" id="headerThemeToggle"></button>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="window.location.href='faultsinjections.html'">
+          <span>🧪</span> Fault Injection
+        </button>
+        <button class="btn btn-success" onclick="window.location.href='nwreport.html'">
+          <span>📊</span> Current Status
+        </button>
+      </div>
+    </div>
+
+    <main>
+      <div class="container">
+        <h1 class="dashboard-title">Cluster Metrics Overview</h1>
+        <div class="grid">
+          <div class="card uptime-card">
+            <div class="card-header">
+              <h2 class="card-title">Reliability Score</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <form id="metricsForm" class="form-container">
+              <div class="form-group">
+                <label for="startDate">Start Date & Time:</label>
+                <input type="datetime-local" id="startDate" value="2025-06-12T09:00" required />
+              </div>
+              <div class="form-group">
+                <label for="endDate">End Date & Time:</label>
+                <input type="datetime-local" id="endDate" value="2025-06-12T10:00" required />
+              </div>
+              <div class="weight-group">
+                <div class="form-group">
+                  <label for="successWeight">Error Rate Weight (%):</label>
+                  <input type="number" id="successWeight" min="0" max="100" value="25" required />
+                </div>
+                <div class="form-group">
+                  <label for="throughputWeight">Throughput Weight (%):</label>
+                  <input type="number" id="throughputWeight" min="0" max="100" value="25" required />
+                </div>
+                <div class="form-group">
+                  <label for="latencyWeight">Latency Weight (%):</label>
+                  <input type="number" id="latencyWeight" min="0" max="100" value="25" required />
+                </div>
+                <div class="form-group">
+                  <label for="qpsWeight">QPS Weight (%):</label>
+                  <input type="number" id="qpsWeight" min="0" max="100" value="25" required />
+                </div>
+              </div>
+              <p id="weightError" class="error-message">Weights must sum to 100%</p>
+              <button type="submit" class="submit-btn">Get Metrics & Score</button>
+            </form>
+            <div class="result-box" id="resultBox">
+              <p><strong>Namespace:</strong> <span id="nsOut"></span></p>
+              <p><strong>Time Range:</strong> <span id="timeRange"></span></p>
+              <p><strong>Error Rate:</strong> <span id="rateOut"></span>%</p>
+              <p><strong>Throughput:</strong> <span id="throughputOut"></span> bytes/s</p>
+              <p><strong>Latency:</strong> <span id="latencyOut"></span> ms</p>
+              <p><strong>QPS:</strong> <span id="qpsOut"></span> queries/s</p>
+              <p><strong>Composite Score:</strong> <span id="scoreOut"></span> (0-100)</p>
+              <p><strong>Time:</strong> <span id="timeOut"></span></p>
+            </div>
+          </div>
+          <div class="card uptime-card">
+            <div class="card-header">
+              <h2 class="card-title">Resiliency Score</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <form id="resiliencyMetricsForm" class="form-container">
+              <div class="form-group">
+                <label for="startDate2">Start Date & Time:</label>
+                <input type="datetime-local" id="startDate2" value="2025-06-12T09:00" required />
+              </div>
+              <div class="form-group">
+                <label for="endDate2">End Date & Time:</label>
+                <input type="datetime-local" id="endDate2" value="2025-06-12T10:00" required />
+              </div>
+              <div class="weight-group three-columns">
+                <div class="form-group">
+                  <label for="cpuEfficiencyWeight">CPU Efficiency Weight (%):</label>
+                  <input type="number" id="cpuEfficiencyWeight" min="0" max="100" value="33" required />
+                </div>
+                <div class="form-group">
+                  <label for="memoryEfficiencyWeight">Memory Efficiency Weight (%):</label>
+                  <input type="number" id="memoryEfficiencyWeight" min="0" max="100" value="33" required />
+                </div>
+                <div class="form-group">
+                  <label for="networkUtilizationWeight">Network Utilization Weight (%):</label>
+                  <input type="number" id="networkUtilizationWeight" min="0" max="100" value="34" required />
+                </div>
+              </div>
+              <p id="weightError2" class="error-message">Weights must sum to 100%</p>
+              <button type="submit" class="submit-btn">Get Metrics & Score</button>
+            </form>
+            <div class="result-box" id="resultBox2">
+              <p><strong>Namespace:</strong> <span id="nsOut2"></span></p>
+              <p><strong>Time Range:</strong> <span id="timeRange2"></span></p>
+              <p><strong>CPU Efficiency:</strong> <span id="cpuEfficiencyOut"></span> cores</p>
+              <p><strong>Memory Efficiency:</strong> <span id="memoryEfficiencyOut"></span> MiB</p>
+              <p><strong>Network Utilization:</strong> <span id="networkUtilizationOut"></span> (0-1)</p>
+              <p><strong>Composite Score:</strong> <span id="scoreOut2"></span> (0-100)</p>
+              <p><strong>Time:</strong> <span id="timeOut2"></span></p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Cluster Scalability</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="scalabilityChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Replica Status</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="replicaChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">CPU Usage</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="cpuChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Memory Usage</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="memoryChart"></canvas>
+            </div>
+          </div>
+          <div class="card uptime-card">
+            <div class="card-header">
+              <h2 class="card-title">Pod Uptime & Health Status</h2>
+              <div class="card-actions">
+                <button class="card-btn">↻ Refresh</button>
+                <button class="card-btn">📊 Details</button>
+              </div>
+            </div>
+            <div class="uptime-container">
+              <div class="uptime-summary">
+                <div class="uptime-metric large">
+                  <span class="uptime-icon">⏱️</span>
+                  <div>
+                    <span class="uptime-value" id="avgUptime">--</span>
+                    <span class="uptime-label">Average Uptime</span>
+                  </div>
+                </div>
+                <div class="uptime-metric large">
+                  <span class="uptime-icon">🏆</span>
+                  <div>
+                    <span class="uptime-value" id="maxUptime">--</span>
+                    <span class="uptime-label">Longest Running</span>
+                  </div>
+                </div>
+                <div class="uptime-metric large">
+                  <span class="uptime-icon">✅</span>
+                  <div>
+                    <span class="uptime-value" id="healthyPods">--</span>
+                    <span class="uptime-label">Healthy Pods</span>
+                  </div>
+                </div>
+                <div class="uptime-metric large">
+                  <span class="uptime-icon">⚠️</span>
+                  <div>
+                    <span class="uptime-value" id="unhealthyPods">--</span>
+                    <span class="uptime-label">Unhealthy</span>
+                  </div>
+                </div>
+              </div>
+              <div class="chart-container" style="height: 350px;">
+                <canvas id="uptimeChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('sidebarThemeToggle');
+    const headerThemeToggle = document.getElementById('headerThemeToggle');
+
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      localStorage.setItem('lightMode', isLight);
+      updateChartColors();
+    }
+
+    themeToggle.addEventListener('click', toggleTheme);
+    headerThemeToggle.addEventListener('click', toggleTheme);
+
+    // Initialize theme
+    if (localStorage.getItem('lightMode') === 'true' || 
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+      document.body.classList.add('light-mode');
+    }
+
+    // Chart instances
+    let charts = {
+      scalability: null,
+      replica: null,
+      cpu: null,
+      memory: null,
+      uptime: null
+    };
+
+    // Update chart colors based on theme
+    function updateChartColors() {
+      const isLight = document.body.classList.contains('light-mode');
+      const textColor = isLight ? '#333' : '#fff';
+      const gridColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+      const backgroundColor = isLight ? '#fff' : 'rgba(0, 0, 0, 0.3)';
+      
+      Object.values(charts).forEach(chart => {
+        if (chart) {
+          // Update scales
+          if (chart.options.scales) {
+            if (chart.options.scales.x) {
+              chart.options.scales.x.grid.color = gridColor;
+              chart.options.scales.x.ticks.color = textColor;
+              if (chart.options.scales.x.title) {
+                chart.options.scales.x.title.color = textColor;
+              }
+            }
+            if (chart.options.scales.y) {
+              chart.options.scales.y.grid.color = gridColor;
+              chart.options.scales.y.ticks.color = textColor;
+              if (chart.options.scales.y.title) {
+                chart.options.scales.y.title.color = textColor;
+              }
+            }
+            if (chart.options.scales.r) {
+              chart.options.scales.r.angleLines.color = gridColor;
+              chart.options.scales.r.grid.color = gridColor;
+              chart.options.scales.r.pointLabels.color = textColor;
+              chart.options.scales.r.ticks.color = textColor;
+            }
+          }
+          
+          // Update plugins
+          if (chart.options.plugins) {
+            if (chart.options.plugins.legend?.labels) {
+              chart.options.plugins.legend.labels.color = textColor;
+            }
+            if (chart.options.plugins.tooltip) {
+              chart.options.plugins.tooltip.backgroundColor = backgroundColor;
+              chart.options.plugins.tooltip.bodyColor = textColor;
+              chart.options.plugins.tooltip.titleColor = textColor;
+            }
+            if (chart.options.plugins.datalabels) {
+              chart.options.plugins.datalabels.color = textColor;
+            }
+          }
+          
+          // Update chart background
+          chart.options.backgroundColor = backgroundColor;
+          
+          chart.update();
+        }
+      });
+    }
+
+    // Placeholder for showNotification
+    function showNotification(message, isSuccess) {
+      console.log(`${isSuccess ? 'Success' : 'Error'}: ${message}`);
+      alert(message); // Replace with proper UI notification if available
+    }
+
+    // Fetch namespaces from Prometheus API
+    async function fetchNamespaces() {
+      const url = 'http://raphtory03:9090/api/v1/label/namespace/values';
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || !data.data) {
+          console.error("No namespaces found.");
+          showNotification("Error fetching namespaces.", false);
+          return [];
+        }
+        return data.data;
+      } catch (error) {
+        console.error('Error fetching namespaces:', error);
+        showNotification("Failed to fetch namespaces: " + error.message, false);
+        return [];
+      }
+    }
+
+    // Populate namespace dropdown
+    async function populateNamespaces() {
+      const namespaceSelect = document.getElementById('namespace');
+      namespaceSelect.innerHTML = ''; // Clear existing options
+
+      const namespaces = await fetchNamespaces();
+      if (namespaces.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No namespaces available';
+        option.disabled = true;
+        option.selected = true;
+        namespaceSelect.appendChild(option);
+        return;
+      }
+
+      namespaces.forEach(namespace => {
+        const option = document.createElement('option');
+        option.value = namespace;
+        option.textContent = namespace;
+        namespaceSelect.appendChild(option);
+      });
+
+      // Select the first namespace by default and update dashboard
+      if (namespaces.length > 0) {
+        namespaceSelect.value = namespaces[0];
+        updateDashboard();
+      }
+    }
+
+    // Fetch metrics for Reliability Score
+    async function fetchReliabilityMetrics() {
+      const ns = document.getElementById('namespace').value;
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const successWeight = parseFloat(document.getElementById('successWeight').value) || 0;
+      const throughputWeight = parseFloat(document.getElementById('throughputWeight').value) || 0;
+      const latencyWeight = parseFloat(document.getElementById('latencyWeight').value) || 0;
+      const qpsWeight = parseFloat(document.getElementById('qpsWeight').value) || 0;
+      const box = document.getElementById('resultBox');
+
+      // Validate inputs
+      if (!startDate || !endDate || new Date(startDate) >= new Date(endDate)) {
+        box.innerHTML = '<p><strong>Error:</strong> Invalid start or end date. Start must be before end.</p>';
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+        return;
+      }
+      const totalWeight = successWeight + throughputWeight + latencyWeight + qpsWeight;
+      if (totalWeight !== 100) {
+        document.getElementById('weightError').style.display = 'block';
+        box.innerHTML = '<p><strong>Error:</strong> Weights must sum to 100%.</p>';
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+        return;
+      } else {
+        document.getElementById('weightError').style.display = 'none';
+      }
+
+      // Show loading state
+      box.innerHTML = '<p>Loading metrics...</p>';
+      box.classList.remove('error');
+      box.classList.add('loading');
+      box.style.display = 'block';
+
+      try {
+        console.log(`Fetching reliability metrics for namespace: ${ns}, start: ${startDate}, end: ${endDate}`);
+        console.log(`Weights: Error Rate=${successWeight}, Throughput=${throughputWeight}, Latency=${latencyWeight}, QPS=${qpsWeight}`);
+
+        // Convert dates to ISO format
+        const startISO = new Date(startDate).toISOString();
+        const endISO = new Date(endDate).toISOString();
+
+        // Fetch metrics
+        const [successRateRes, throughputRes, latencyRes, qpsRes] = await Promise.all([
+          fetch(`/api/error-rate?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`)
+            .then(res => { console.log(`Error Rate Response: ${res.status}`); return res; }),
+          fetch(`/api/throughput?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`)
+            .then(res => { console.log(`Throughput Response: ${res.status}`); return res; }),
+          fetch(`/api/get-latency?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`)
+            .then(res => { console.log(`Latency Response: ${res.status}`); return res; }),
+          fetch(`/api/qps?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`)
+            .then(res => { console.log(`QPS Response: ${res.status}`); return res; })
+        ]);
+
+        if (!successRateRes.ok || !throughputRes.ok || !latencyRes.ok || !qpsRes.ok) {
+          throw new Error(`Fetch failed: ${successRateRes.statusText}, ${throughputRes.statusText}, ${latencyRes.statusText}, ${qpsRes.statusText}`);
+        }
+
+        const successRateData = await successRateRes.json();
+        const throughputData = await throughputRes.json();
+        const latencyData = await latencyRes.json();
+        const qpsData = await qpsRes.json();
+
+        console.log('Error Rate Data:', successRateData);
+        console.log('Throughput Data:', throughputData);
+        console.log('Latency Data:', latencyData);
+        console.log('QPS Data:', qpsData);
+
+        // Normalize metrics
+        const successRate = parseFloat(successRateData.successRate) || 0;
+        const throughput = parseFloat(throughputData.throughput) || 0;
+        const latency = parseFloat(latencyData.p99Latency) || 0;
+        const qps = parseFloat(qpsData.qps) || 0;
+
+        const maxThroughput = 100;
+        const normalizedThroughput = Math.min((throughput / maxThroughput) * 100, 100);
+
+        const maxLatency = 1000;
+        const normalizedLatency = latency > maxLatency ? 0 : ((maxLatency - latency) / maxLatency) * 100;
+
+        const maxQps = 1000;
+        const normalizedQps = Math.min((qps / maxQps) * 100, 100);
+
+        // Calculate score
+        const score = (
+          (successWeight * (100 - successRate)) +
+          (throughputWeight * normalizedThroughput) +
+          (latencyWeight * normalizedLatency) +
+          (qpsWeight * normalizedQps)
+        ) / totalWeight;
+
+        // Update UI
+        box.innerHTML = `
+          <p><strong>Namespace:</strong> <span id="nsOut">${ns}</span></p>
+          <p><strong>Time Range:</strong> <span id="timeRange">${new Date(startDate).toLocaleString()} - ${new Date(endDate).toLocaleString()}</span></p>
+          <p><strong>Error Rate:</strong> <span id="rateOut">${successRateData.successRate ?? 'N/A'}</span>%</p>
+          <p><strong>Throughput:</strong> <span id="throughputOut">${throughputData.throughput ?? 'N/A'}</span> req/s</p>
+          <p><strong>Latency:</strong> <span id="latencyOut">${latencyData.p99Latency ?? 'N/A'}</span> ms</p>
+          <p><strong>QPS:</strong> <span id="qpsOut">${qpsData.qps ?? 'N/A'}</span> queries/s</p>
+          <p><strong>Composite Score:</strong> <span id="scoreOut">${score.toFixed(2)}</span> (0-100)</p>
+          <p><strong>Time:</strong> <span id="timeOut">${new Date().toLocaleString()}</span></p>
+        `;
+
+        const messages = [
+          successRateData.message,
+          throughputData.message,
+          latencyData.message,
+          qpsData.message
+        ].filter(m => m);
+        if (messages.length > 0) {
+          box.innerHTML += '<p><strong>Note:</strong> ' + messages.join('; ') + '</p>';
+        }
+
+        box.classList.remove('loading');
+        box.classList.remove('error');
+        box.style.display = 'block';
+      } catch (err) {
+        console.error('Fetch error:', err);
+        box.innerHTML = `<p><strong>Error:</strong> Could not fetch metrics: ${err.message}</p>`;
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+      }
+    }
+
+    // Fetch metrics for Resiliency Score
+    async function fetchResiliencyMetrics() {
+      const ns = document.getElementById('namespace').value;
+      const startDate = document.getElementById('startDate2').value;
+      const endDate = document.getElementById('endDate2').value;
+      const cpuEfficiencyWeight = parseFloat(document.getElementById('cpuEfficiencyWeight').value) || 0;
+      const memoryEfficiencyWeight = parseFloat(document.getElementById('memoryEfficiencyWeight').value) || 0;
+      const networkUtilizationWeight = parseFloat(document.getElementById('networkUtilizationWeight').value) || 0;
+      const box = document.getElementById('resultBox2');
+
+      // Validate inputs
+      if (!ns) {
+        box.innerHTML = '<p><strong>Error:</strong> Namespace is required.</p>';
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+        return;
+      }
+      if (!startDate || !endDate || new Date(startDate) >= new Date(endDate)) {
+        box.innerHTML = '<p><strong>Error:</strong> Invalid start or end date. Start must be before end.</p>';
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+        return;
+      }
+      const totalWeight = cpuEfficiencyWeight + memoryEfficiencyWeight + networkUtilizationWeight;
+      if (totalWeight !== 100) {
+        document.getElementById('weightError2').style.display = 'block';
+        box.innerHTML = '<p><strong>Error:</strong> Weights must sum to 100%.</p>';
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+        return;
+      } else {
+        document.getElementById('weightError2').style.display = 'none';
+      }
+
+      // Show loading state
+      box.innerHTML = '<p>Loading metrics...</p>';
+      box.classList.remove('error');
+      box.classList.add('loading');
+      box.style.display = 'block';
+
+      try {
+        console.log(`Fetching resiliency metrics for namespace: ${ns}, start: ${startDate}, end: ${endDate}`);
+        console.log(`Weights: CPU Efficiency=${cpuEfficiencyWeight}, Memory Efficiency=${memoryEfficiencyWeight}, Network Utilization=${networkUtilizationWeight}`);
+
+        // Convert dates to ISO format
+        const startISO = new Date(startDate).toISOString();
+        const endISO = new Date(endDate).toISOString();
+
+        // Construct and log API URLs
+        const cpuEfficiencyUrl = `/api/cpu-usage?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`;
+        const memoryEfficiencyUrl = `/api/memory-usage?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`;
+        const networkUtilizationUrl = `/api/network-utilization-score?namespace=${encodeURIComponent(ns)}&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`;
+
+        console.log('CPU Efficiency URL:', cpuEfficiencyUrl);
+        console.log('Memory Efficiency URL:', memoryEfficiencyUrl);
+        console.log('Network Utilization URL:', networkUtilizationUrl);
+
+        // Fetch metrics
+        const [cpuEfficiencyRes, memoryEfficiencyRes, networkUtilizationRes] = await Promise.all([
+          fetch(cpuEfficiencyUrl)
+            .then(res => { console.log(`CPU Efficiency Response: ${res.status} ${res.statusText}`); return res; }),
+          fetch(memoryEfficiencyUrl)
+            .then(res => { console.log(`Memory Efficiency Response: ${res.status} ${res.statusText}`); return res; }),
+          fetch(networkUtilizationUrl)
+            .then(res => { console.log(`Network Utilization Response: ${res.status} ${res.statusText}`); return res; })
+        ]);
+
+        // Check for non-OK responses and collect error details
+        const errors = [];
+        if (!cpuEfficiencyRes.ok) errors.push(`CPU Efficiency: ${cpuEfficiencyRes.status} ${cpuEfficiencyRes.statusText}`);
+        if (!memoryEfficiencyRes.ok) errors.push(`Memory Efficiency: ${memoryEfficiencyRes.status} ${memoryEfficiencyRes.statusText}`);
+        if (!networkUtilizationRes.ok) errors.push(`Network Utilization: ${networkUtilizationRes.status} ${networkUtilizationRes.statusText}`);
+
+        if (errors.length > 0) {
+          const errorDetails = await Promise.all([
+            cpuEfficiencyRes.ok ? null : cpuEfficiencyRes.text(),
+            memoryEfficiencyRes.ok ? null : memoryEfficiencyRes.text(),
+            networkUtilizationRes.ok ? null : networkUtilizationRes.text()
+          ]);
+          console.error('Error details:', errorDetails);
+          throw new Error(`Fetch failed: ${errors.join(', ')}`);
+        }
+
+        const cpuEfficiencyData = await cpuEfficiencyRes.json();
+        const memoryEfficiencyData = await memoryEfficiencyRes.json();
+        const networkUtilizationData = await networkUtilizationRes.json();
+
+        console.log('CPU Efficiency Data:', cpuEfficiencyData);
+        console.log('Memory Efficiency Data:', memoryEfficiencyData);
+        console.log('Network Utilization Data:', networkUtilizationData);
+
+        // Normalize metrics
+        const cpuEfficiency = parseFloat(cpuEfficiencyData.cpu_usage) || 0;
+        const memoryEfficiency = parseFloat(memoryEfficiencyData.memory_usage_mib) || 0;
+        const networkUtilization = parseFloat(networkUtilizationData.network_utilization_score) || 0;
+
+        // Validate metrics
+        if (isNaN(cpuEfficiency)) {
+          console.warn('Invalid CPU efficiency score received:', cpuEfficiencyData.cpu_usage);
+        }
+        if (isNaN(memoryEfficiency)) {
+          console.warn('Invalid memory efficiency score received:', memoryEfficiencyData.memory_usage_mib);
+        }
+        if (isNaN(networkUtilization)) {
+          console.warn('Invalid network utilization score received:', networkUtilizationData.network_utilization_score);
+        }
+
+        // Normalize CPU efficiency (higher usage is worse)
+        const maxCpuUsage = 10;
+        const normalizedCpuEfficiency = cpuEfficiency > maxCpuUsage ? 0 : ((maxCpuUsage - cpuEfficiency) / maxCpuUsage) * 100;
+
+        // Normalize memory efficiency (higher usage is worse)
+        const maxMemoryUsage = 1024; // Assuming 1 GiB as max reasonable usage
+        const normalizedMemoryEfficiency = memoryEfficiency > maxMemoryUsage ? 0 : ((maxMemoryUsage - memoryEfficiency) / maxMemoryUsage) * 100;
+
+        // Network utilization is already normalized (0 to ~1), scale to 0-100
+        const normalizedNetworkUtilization = Math.min(networkUtilization * 100, 100);
+
+        // Calculate score
+        const score = (
+          (cpuEfficiencyWeight * normalizedCpuEfficiency) +
+          (memoryEfficiencyWeight * normalizedMemoryEfficiency) +
+          (networkUtilizationWeight * normalizedNetworkUtilization)
+        ) / totalWeight;
+
+        // Update UI
+        box.innerHTML = `
+          <p><strong>Namespace:</strong> <span id="nsOut2">${ns}</span></p>
+          <p><strong>Time Range:</strong> <span id="timeRange2">${new Date(startDate).toLocaleString()} - ${new Date(endDate).toLocaleString()}</span></p>
+          <p><strong>CPU Efficiency:</strong> <span id="cpuEfficiencyOut">${isNaN(cpuEfficiency) ? 'N/A' : cpuEfficiency.toFixed(2)}</span> cores</p>
+          <p><strong>Memory Efficiency:</strong> <span id="memoryEfficiencyOut">${isNaN(memoryEfficiency) ? 'N/A' : memoryEfficiency.toFixed(2)}</span> MiB</p>
+          <p><strong>Network Utilization:</strong> <span id="networkUtilizationOut">${isNaN(networkUtilization) ? 'N/A' : networkUtilization.toFixed(2)}</span> (0-1)</p>
+          <p><strong>Composite Score:</strong> <span id="scoreOut2">${isNaN(score) ? 'N/A' : score.toFixed(2)}</span> (0-100)</p>
+          <p><strong>Time:</strong> <span id="timeOut2">${new Date().toLocaleString()}</span></p>
+        `;
+
+        const messages = [
+          cpuEfficiencyData.message,
+          memoryEfficiencyData.message,
+          networkUtilizationData.message
+        ].filter(m => m);
+        if (messages.length > 0) {
+          box.innerHTML += '<p><strong>Note:</strong> ' + messages.join('; ') + '</p>';
+        }
+
+        box.classList.remove('loading');
+        box.classList.remove('error');
+        box.style.display = 'block';
+      } catch (err) {
+        console.error('Fetch error:', err);
+        box.innerHTML = `<p><strong>Error:</strong> Could not fetch metrics: ${err.message}</p>`;
+        box.classList.remove('loading');
+        box.classList.add('error');
+        box.style.display = 'block';
+      }
+    }   
+
+    // Fetch report data
+    async function fetchReport(namespace) {
+      try {
+        const res = await fetch(`/api/report?namespace=${encodeURIComponent(namespace)}`);
+        if (!res.ok) throw new Error('Failed to fetch report');
+        return await res.json();
+      } catch (error) {
+        console.error('Error fetching report:', error);
+        showNotification("Failed to fetch report data: " + error.message, false);
+        return null;
+      }
+    }
+
+    // Render scalability chart
+    function renderScalability(data) {
+      const ctx = document.getElementById('scalabilityChart').getContext('2d');
+      
+      if (charts.scalability) {
+        charts.scalability.destroy();
+      }
+      
+      charts.scalability = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Pods', 'Containers', 'Deployments'],
+          datasets: [{
+            label: 'Cluster Resources',
+            data: [
+              data.podCount,
+              data.containerCount,
+              data.deploymentCount
+            ],
+            backgroundColor: [
+              'rgba(24, 103, 183, 0.7)',
+              'rgba(168, 165, 230, 0.7)',
+              'rgba(255, 118, 117, 0.7)'
+            ],
+            borderColor: [
+              'rgba(24, 103, 183, 1)',
+              'rgba(168, 165, 230, 1)',
+              'rgba(255, 118, 117, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            },
+            tooltip: {
+              backgroundColor: document.body.classList.contains('light-mode') ? '#fff' : 'rgba(0, 0, 0, 0.3)',
+              bodyColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              titleColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              callbacks: {
+                label: function(context) {
+                  return `${context.label}: ${context.raw}`;
+                }
+              }
+            },
+            datalabels: {
+              color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              display: false
+            }
+          },
+          cutout: '65%'
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // Render replica chart
+    function renderReplicaChart(data) {
+      const ctx = document.getElementById('replicaChart').getContext('2d');
+      
+      if (charts.replica) {
+        charts.replica.destroy();
+      }
+      
+      charts.replica = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Expected', 'Available', 'Unavailable'],
+          datasets: [{
+            label: 'Replicas',
+            data: [
+              data.replicaCount,
+              data.actualReplicas,
+              data.replicaCount - data.actualReplicas
+            ],
+            backgroundColor: [
+              'rgba(40, 167, 69, 0.7)',
+              'rgba(23, 162, 184, 0.7)',
+              'rgba(220, 53, 69, 0.7)'
+            ],
+            borderColor: [
+              'rgba(40, 167, 69, 1)',
+              'rgba(23, 162, 184, 1)',
+              'rgba(220, 53, 69, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: document.body.classList.contains('light-mode') ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: document.body.classList.contains('light-mode') ? '#fff' : 'rgba(0, 0, 0, 0.3)',
+              bodyColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              titleColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.raw}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render CPU chart
+    function renderCpuChart(cpu) {
+      const ctx = document.getElementById('cpuChart').getContext('2d');
+      
+      if (charts.cpu) {
+        charts.cpu.destroy();
+      }
+      
+      charts.cpu = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['CPU Usage'],
+          datasets: [{
+            label: 'CPU (cores)',
+            data: [cpu],
+            backgroundColor: 'rgba(58, 134, 255, 0.7)',
+            borderColor: 'rgba(58, 134, 255, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Cores',
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: document.body.classList.contains('light-mode') ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: document.body.classList.contains('light-mode') ? '#fff' : 'rgba(0, 0, 0, 0.3)',
+              bodyColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              titleColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.raw.toFixed(2)} cores`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Memory chart
+    function renderMemoryChart(memory) {
+      const ctx = document.getElementById('memoryChart').getContext('2d');
+      
+      if (charts.memory) {
+        charts.memory.destroy();
+      }
+      
+      charts.memory = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Memory Usage'],
+          datasets: [{
+            label: 'Memory (GB)',
+            data: [memory / 1024 / 1024 / 1024], // Convert to GB
+            backgroundColor: 'rgba(168, 165, 230, 0.7)',
+            borderColor: 'rgba(168, 165, 230, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'GB',
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: document.body.classList.contains('light-mode') ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: document.body.classList.contains('light-mode') ? '#fff' : 'rgba(0, 0, 0, 0.3)',
+              bodyColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              titleColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.raw.toFixed(2)} GB`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render uptime chart
+    function renderUptimeChart(uptimeData) {
+      const ctx = document.getElementById('uptimeChart').getContext('2d');
+      
+      // Simplify pod names in the data
+      const simplifiedData = {};
+      const originalToSimpleMap = {};
+      
+      Object.keys(uptimeData).forEach(fullPodName => {
+        const simpleName = getSimplePodName(fullPodName);
+        simplifiedData[simpleName] = uptimeData[fullPodName];
+        originalToSimpleMap[fullPodName] = simpleName;
+      });
+      
+      const labels = Object.keys(simplifiedData);
+      const data = Object.values(simplifiedData);
+      
+      // Calculate metrics for the summary
+      const uptimeHours = data.map(seconds => seconds / 3600);
+      const avgUptime = uptimeHours.reduce((a, b) => a + b, 0) / uptimeHours.length;
+      const maxUptime = Math.max(...uptimeHours);
+      const healthyCount = uptimeHours.filter(h => h > 24).length;
+      const unhealthyCount = uptimeHours.length - healthyCount;
+      
+      // Update summary elements with better formatting
+      document.getElementById('avgUptime').textContent = avgUptime >= 24 
+        ? `${(avgUptime/24).toFixed(1)}d` 
+        : `${avgUptime.toFixed(1)}h`;
+      
+      document.getElementById('maxUptime').textContent = maxUptime >= 24 
+        ? `${(maxUptime/24).toFixed(1)}d` 
+        : `${maxUptime.toFixed(1)}h`;
+      
+      document.getElementById('healthyPods').textContent = `${healthyCount}`;
+      document.getElementById('unhealthyPods').textContent = `${unhealthyCount}`;
+      
+      if (charts.uptime) {
+        charts.uptime.destroy();
+      }
+      
+      charts.uptime = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Uptime (hours)',
+            data: uptimeHours,
+            backgroundColor: function(context) {
+              const value = context.raw;
+              return value < 24 
+                ? 'rgba(220, 53, 69, 0.7)' 
+                : 'rgba(40, 167, 69, 0.7)';
+            },
+            borderColor: function(context) {
+              const value = context.raw;
+              return value < 24 
+                ? 'rgba(220, 53, 69, 1)' 
+                : 'rgba(40, 167, 69, 1)';
+            },
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Uptime (hours)',
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                color: document.body.classList.contains('light-mode') ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                callback: function(value) {
+                  return value >= 24 ? value/24 + 'd' : value + 'h';
+                }
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Pods by Service',
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+                font: {
+                  size: 12
+                }
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: document.body.classList.contains('light-mode') ? '#fff' : 'rgba(0, 0, 0, 0.3)',
+              bodyColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              titleColor: document.body.classList.contains('light-mode') ? '#333' : '#fff',
+              callbacks: {
+                label: function(context) {
+                  const hours = context.raw;
+                  const days = (hours / 24).toFixed(2);
+                  return [
+                    `Uptime: ${hours.toFixed(1)} hours (≈${days} days)`,
+                    `Status: ${hours < 24 ? 'Unhealthy ⚠️' : 'Healthy ✅'}`
+                  ];
+                },
+                title: function(context) {
+                  const fullPodName = Object.keys(originalToSimpleMap).find(
+                    key => originalToSimpleMap[key] === context[0].label
+                  );
+                  return fullPodName || context[0].label;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Function to extract the main pod name
+    function getSimplePodName(fullPodName) {
+      const parts = fullPodName.split('-');
+      return parts.slice(0, -1).join('-') || fullPodName;
+    }
+
+    // Update dashboard
+    async function updateDashboard() {
+      const namespaceSelect = document.getElementById('namespace');
+      const namespace = namespaceSelect.options[namespaceSelect.selectedIndex]?.value;
+      
+      if (!namespace) {
+        showNotification("No namespace selected.", false);
+        return;
+      }
+      
+      const report = await fetchReport(namespace);
+      
+      if (report) {
+        renderScalability(report.scalability);
+        renderReplicaChart(report.scalability);
+        renderCpuChart(report.resources.cpuUsage);
+        renderMemoryChart(report.resources.memoryUsage);
+        renderUptimeChart(report.uptime);
+      } else {
+        console.error('No report data received for namespace:', namespace);
+        showNotification("No report data received for namespace: " + namespace, false);
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      populateNamespaces();
+      
+      document.getElementById('namespace').addEventListener('change', updateDashboard);
+      
+      document.querySelectorAll('.card-btn').forEach(btn => {
+        btn.addEventListener('click', updateDashboard);
+      });
+      
+      // Form submission for Reliability Score
+      const reliabilityMetricsForm = document.getElementById('metricsForm');
+      reliabilityMetricsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await fetchReliabilityMetrics();
+      });
+      
+      // Form submission for Resiliency Score
+      const resiliencyMetricsForm = document.getElementById('resiliencyMetricsForm');
+      resiliencyMetricsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await fetchResiliencyMetrics();
+      });
+      
+      setTimeout(updateChartColors, 100);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kubernetes Monitoring Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <style>
+    :root {
+      --primary: #1867b7;
+      --secondary: #A8A5E6;
+      --accent: #FF7675;
+      --bg: #0F0F1E;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --sidebar-bg: rgba(16, 16, 32, 0.95);
+      --text-color: #fff;
+      --input-bg: rgba(0, 0, 0, 0.3);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --nav-hover: rgba(108, 92, 231, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      --table-bg: rgba(0, 0, 0, 0.3);
+      --scrollbar-thumb: rgba(108, 92, 231, 0.5);
+      --scrollbar-track: transparent;
+      --pagination-active: #1867b7;
+      --pagination-hover: rgba(24, 103, 183, 0.1);
+      --chart-bg: rgba(0, 0, 0, 0.3);
+      --chart-text: #fff;
+      --chart-grid: rgba(255, 255, 255, 0.1);
+      --chart-legend-text: #fff;
+      --legend-instance-color: #A8A5E6; /* Color for instance in legend */
+    }
+
+    .light-mode {
+      --primary: #1867b7;
+      --secondary: #7986CB;
+      --accent: #FF5252;
+      --bg: #f5f5f5;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --sidebar-bg: rgba(255, 255, 255, 0.95);
+      --text-color: #333;
+      --input-bg: rgba(0, 0, 0, 0.05);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --nav-hover: rgba(92, 107, 192, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+      --table-bg: #fff;
+      --scrollbar-thumb: rgba(92, 107, 192, 0.5);
+      --pagination-hover: rgba(24, 103, 183, 0.05);
+      --chart-bg: #fff;
+      --chart-text: #333;
+      --chart-grid: rgba(0, 0, 0, 0.1);
+      --chart-legend-text: #333;
+      --legend-instance-color: #3f51b5; /* Color for instance in light mode */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar {
+      width: 280px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      padding: 2rem 1.5rem;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar h1 {
+      font-size: 1.8rem;
+      margin-bottom: 2.5rem;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .nav-links {
+      flex-grow: 1;
+    }
+
+    .nav-link {
+      color: var(--text-color);
+      opacity: 0.9;
+      text-decoration: none;
+      margin: 0.8rem 0;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover {
+      background: var(--nav-hover);
+      transform: translateX(8px);
+      opacity: 1;
+    }
+
+    .nav-link:hover::before {
+      width: 100%;
+    }
+
+    .theme-toggle {
+      background: var(--card-bg);
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: auto;
+      margin-bottom: 1rem;
+    }
+
+    .theme-toggle:hover {
+      background: var(--nav-hover);
+    }
+
+    .copyright {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.6;
+      text-align: center;
+    }
+
+    .main {
+      flex: 1;
+      margin-left: 280px;
+      min-height: 100vh;
+      padding: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 2.5rem;
+      box-shadow: var(--shadow);
+      width: 100%;
+      transition: all 0.3s ease;
+      margin-bottom: 2rem;
+    }
+
+    .card h2 {
+      margin-bottom: 2rem;
+      text-align: left;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .view-toggle {
+      display: flex;
+      justify-content: right;
+      margin-bottom: 2rem;
+      gap: 1rem;
+    }
+
+    .view-btn {
+      padding: 0.8rem 1.5rem;
+      background: var(--input-bg);
+      border: none;
+      border-radius: 8px;
+      color: var(--text-color);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .view-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+    }
+
+    .view-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 200px;
+    }
+
+    label {
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      opacity: 0.8;
+      color: var(--text-color);
+    }
+
+    select, input {
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--text-color);
+      font-size: 0.9rem;
+    }
+
+    button.fetch-btn {
+      padding: 0.8rem 1.5rem;
+      background: linear-gradient(135deg, var(--primary), #8175FF);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      align-self: flex-end;
+      height: fit-content;
+    }
+
+    button.fetch-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4);
+    }
+
+    .table-view {
+      display: block;
+    }
+
+    .chart-view {
+      display: none;
+    }
+
+    .chart-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .pod-selector {
+      flex-grow: 1;
+      min-width: 300px;
+    }
+
+    .pod-selector select {
+      width: 100%;
+      height: 120px;
+    }
+
+    .table-wrapper {
+      margin-top: 1rem;
+    }
+
+    .table-container {
+      max-height: 500px;
+      overflow: auto;
+      border: 1px solid var(--border-color);
+      background: var(--table-bg);
+      border-radius: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .table-container::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .table-container::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 10px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 10px;
+      border: 2px solid var(--table-bg);
+    }
+
+    .table-container::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 0.8rem;
+      text-align: center;
+    }
+
+    th {
+      background-color: var(--nav-hover);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(12px);
+    }
+
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .light-mode tr:nth-child(even) {
+      background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    .pagination-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .pagination-btn {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pagination-btn:hover {
+      background: var(--pagination-hover);
+    }
+
+    .pagination-btn.active {
+      background: var(--pagination-active);
+      color: white;
+      border-color: var(--pagination-active);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .page-info {
+      margin: 0 1rem;
+      font-size: 0.9rem;
+    }
+
+    .rows-per-page {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+
+    .rows-per-page select {
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 500px;
+      margin-top: 2rem;
+      display: none;
+    }
+
+    #cpuChart {
+      background: #7f9faf;
+      border-radius: 12px;
+      padding: 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .legend-container {
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 10px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      margin-top: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+      font-size: 1rem; /* Larger font size for visibility */
+    }
+
+    .legend-item:hover {
+      background-color: var(--nav-hover);
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+      border-radius: 3px;
+    }
+
+    .legend-label {
+      display: flex;
+      align-items: center;
+    }
+
+    .legend-label .instance {
+      color: var(--legend-instance-color);
+      font-weight: 700; /* Bold instance text */
+      margin-left: 5px;
+    }
+
+    .download-btn {
+      padding: 0.8rem 1.5rem;
+      background: linear-gradient(135deg, var(--primary), #8175FF);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4);
+    }
+
+    .notification {
+      position: fixed;
+      bottom: 2rem;
+      right: -300px;
+      background: var(--card-bg);
+      padding: 1.2rem 2rem;
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+      backdrop-filter: blur(12px);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: var(--shadow);
+      color: var(--text-color);
+    }
+
+    .notification.show {
+      right: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 1.5rem;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .pagination-controls {
+        flex-wrap: wrap;
+      }
+
+      .rows-per-page {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+        margin-top: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="nav-links">
+      <h1>⚡ K8s Chaos</h1>
+      <a href="index.html" class="nav-link">
+        <span>📊 Chaos Graph</span>
+      </a>
+      <a href="kpi.html" class="nav-link active">
+        <span>📈 KPI Dashboard</span>
+      </a>
+      <a href="faultsinjections.html" class="nav-link">
+        <span>🧪 Fault Injection</span>
+      </a>
+      <a href="metrics-dash.html" class="nav-link">
+        <span>📏 CPU Usage</span>
+      </a>
+      <a href="metrics-system-usage.html" class="nav-link">
+        <span>🖥️ CPU System</span>
+      </a>
+      <a href="memory_working_set_bytes.html" class="nav-link">
+        <span>🎯 Active Memory</span>
+      </a>
+      <a href="Memory_RSS.html" class="nav-link">
+        <span>📍 Resident Memory</span>
+      </a>
+      <a href="container_network_receive_bytes.html" class="nav-link">
+        <span>🌐 Network Receive</span>
+      </a>
+      <a href="network_transmit_packets.html" class="nav-link">
+        <span>📡 Network Transmit</span>
+      </a>
+      
+      <a href="events.html" class="nav-link">
+        <span>📋 Events</span>
+      </a>
+    </div>
+    <button class="theme-toggle" id="themeToggle">
+      <span>🌓</span> <span>Toggle Theme</span>
+    </button>
+    <div class="copyright">© 2025 UPM Kubernetes Dashboard</div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <h2>⚙️ Memory RSS Dashboard</h2>
+      
+      <div class="view-toggle">
+        <button class="view-btn active" id="tableViewBtn">Table View</button>
+        <button class="view-btn" id="chartViewBtn">Chart View</button>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="namespace">Namespace</label>
+          <select id="namespace">
+            <option value="">Loading namespaces...</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="start">Start Time</label>
+          <input type="datetime-local" id="start" />
+        </div>
+        <div class="control-group">
+          <label for="end">End Time</label>
+          <input type="datetime-local" id="end" />
+        </div>
+        <button class="fetch-btn" onclick="fetchData()">Load Data</button>
+      </div>
+
+      <div id="tableView" class="table-view">
+        <div class="table-wrapper">
+          <div class="table-container">
+            <table id="cpuTable">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Pod</th>
+                  <th>Container</th>
+                  <th>Instance</th>
+                  <th>Memory RSS (MB)</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="5">No data available</td></tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="pagination-controls">
+            <button class="pagination-btn" id="firstPage" disabled>First</button>
+            <button class="pagination-btn" id="prevPage" disabled>Previous</button>
+            <span class="page-info" id="pageInfo">Page 1 of 1</span>
+            <button class="pagination-btn" id="nextPage" disabled>Next</button>
+            <button class="pagination-btn" id="lastPage" disabled>Last</button>
+            
+            <div class="rows-per-page">
+              <span>Rows per page:</span>
+              <select id="rowsPerPage">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="0">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="download-btn" onclick="downloadCSV()">Download CSV</button>
+      </div>
+
+      <div id="chartView" class="chart-view">
+        <div class="chart-controls">
+          <div class="control-group pod-selector">
+            <label for="podSelect">Select Pods to Display (required)</label>
+            <select id="podSelect" multiple size="5" required>
+              <option value="">Select pods after loading data</option>
+            </select>
+          </div>
+          <button class="fetch-btn" onclick="updateChartWithSelectedPods()">Show Graph</button>
+        </div>
+        <div id="chartContainer" class="chart-container">
+          <canvas id="cpuChart"></canvas>
+        </div>
+        <div class="legend-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="notification" class="notification"></div>
+
+  <script>
+    let currentPage = 1;
+    let rowsPerPage = 25;
+    let allData = [];
+    let filteredData = [];
+    let chart;
+    let allPods = new Set();
+    let podSeriesData = [];
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      localStorage.setItem('lightMode', isLight);
+      if (chart) updateChartColors();
+    });
+    if (localStorage.getItem('lightMode') === 'true') {
+      document.body.classList.add('light-mode');
+    }
+
+    // View Toggle
+    const tableViewBtn = document.getElementById('tableViewBtn');
+    const chartViewBtn = document.getElementById('chartViewBtn');
+    const tableView = document.getElementById('tableView');
+    const chartView = document.getElementById('chartView');
+
+    tableViewBtn.addEventListener('click', () => {
+      tableViewBtn.classList.add('active');
+      chartViewBtn.classList.remove('active');
+      tableView.style.display = 'block';
+      chartView.style.display = 'none';
+    });
+
+    chartViewBtn.addEventListener('click', () => {
+      chartViewBtn.classList.add('active');
+      tableViewBtn.classList.remove('active');
+      tableView.style.display = 'none';
+      chartView.style.display = 'block';
+      document.getElementById('chartContainer').style.display = 'none';
+      if (podSeriesData.length > 0) {
+        updatePodSelector();
+      }
+    });
+
+    function showNotification(message, success = true) {
+      const notif = document.getElementById('notification');
+      notif.style.backgroundColor = success ? 'rgba(40, 167, 69, 0.15)' : 'rgba(220, 53, 69, 0.15)';
+      notif.style.borderColor = success ? '#28a745' : '#dc3545';
+      notif.innerHTML = (success ? '✅ ' : '❌ ') + message;
+      notif.classList.add('show');
+      setTimeout(() => notif.classList.remove('show'), 3000);
+    }
+
+    function updatePodSelector() {
+      const podSelect = document.getElementById('podSelect');
+      podSelect.innerHTML = '';
+      const sortedPods = Array.from(allPods).sort();
+      sortedPods.forEach(pod => {
+        const series = podSeriesData.find(s => s.pod === pod);
+        const instance = series ? series.instance || '-' : '-';
+        const option = document.createElement('option');
+        option.value = pod;
+        option.textContent = `${pod} (Node: ${instance})`; // Include instance in selector
+        option.selected = true;
+        podSelect.appendChild(option);
+      });
+    }
+
+    function updateChartWithSelectedPods() {
+      const podSelect = document.getElementById('podSelect');
+      const selectedPods = Array.from(podSelect.selectedOptions).map(opt => opt.value);
+      
+      if (selectedPods.length === 0) {
+        showNotification("Please select at least one pod to display the graph.", false);
+        document.getElementById('chartContainer').style.display = 'none';
+        return;
+      }
+      
+      const filteredSeries = podSeriesData.filter(series => selectedPods.includes(series.pod));
+      if (filteredSeries.length > 0) {
+        document.getElementById('chartContainer').style.display = 'block';
+        renderChart(filteredSeries);
+      } else {
+        showNotification("No data available for selected pods.", false);
+        document.getElementById('chartContainer').style.display = 'none';
+      }
+    }
+
+    function renderChart(pods) {
+      const ctx = document.getElementById("cpuChart").getContext("2d");
+      const colors = [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+        "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+        "#bcbd22", "#17becf", "#aec7e8", "#ffbb78",
+        "#98df8a", "#ff9896", "#c5b0d5", "#c49c94",
+        "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"
+      ];
+      
+      pods.sort((a, b) => a.pod.localeCompare(b.pod));
+      
+      const datasets = pods.map((p, i) => ({
+        label: `${p.pod} (Node: ${p.instance || '-'})`,
+        data: p.rates.map(d => ({ x: d.timestamp, y: d.rate })),
+        borderColor: colors[i % colors.length],
+        backgroundColor: colors[i % colors.length] + '33',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        fill: false,
+        tension: 0.1,
+      }));
+      
+      if (chart) chart.destroy();
+      
+      const legendContainer = document.querySelector('.legend-container');
+      legendContainer.innerHTML = '';
+      
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: ' Memory RSS Rate per Pod',
+              color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim(),
+              font: { size: 16 }
+            },
+            legend: {
+              display: false,
+            },
+            tooltip: { 
+              mode: 'nearest',
+              intersect: false,
+              backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim(),
+              titleColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim(),
+              bodyColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim(),
+              borderColor: getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim(),
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                title: function(context) {
+                  return new Date(context[0].parsed.x).toLocaleString();
+                },
+                label: function(context) {
+                  const [pod, nodePart] = context.dataset.label.split(' (Node: ');
+                  const node = nodePart ? nodePart.slice(0, -1) : '-';
+                  return [
+                    `Pod: ${pod}`,
+                    `Node: ${node}`,
+                    `Memory RSS: ${context.parsed.y.toFixed(4)} (MB)`
+                  ];
+                }
+              }
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { 
+                tooltipFormat: 'MMM dd, yyyy HH:mm:ss',
+                unit: 'minute'
+              },
+              title: { 
+                display: true, 
+                text: 'Timestamp', 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() 
+              },
+              grid: { 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() 
+              },
+              ticks: { 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim(),
+                maxRotation: 45,
+                minRotation: 45
+              }
+            },
+            y: {
+              beginAtZero: true,
+              title: { 
+                display: true, 
+                text: ' Memory RSS (MB)', 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() 
+              },
+              grid: { 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() 
+              },
+              ticks: { 
+                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim() 
+              }
+            }
+          },
+          animation: {
+            duration: 0
+          },
+          hover: {
+            animationDuration: 0
+          },
+          responsiveAnimationDuration: 0
+        }
+      });
+
+      updateCustomLegend();
+      chart.update();
+    }
+
+    function updateCustomLegend() {
+      const legendContainer = document.querySelector('.legend-container');
+      legendContainer.innerHTML = '';
+      
+      chart.data.datasets.forEach((dataset, i) => {
+        const legendItem = document.createElement('div');
+        legendItem.className = 'legend-item';
+        legendItem.dataset.index = i;
+        
+        const legendColor = document.createElement('div');
+        legendColor.className = 'legend-color';
+        legendColor.style.backgroundColor = dataset.borderColor;
+        
+        const legendLabel = document.createElement('span');
+        legendLabel.className = 'legend-label';
+        const [pod, nodePart] = dataset.label.split(' (Node: ');
+        const node = nodePart ? nodePart.slice(0, -1) : '-';
+        legendLabel.innerHTML = `${pod} <span class="instance">(Node: ${node})</span>`;
+        
+        legendItem.appendChild(legendColor);
+        legendItem.appendChild(legendLabel);
+        legendContainer.appendChild(legendItem);
+        
+        legendItem.addEventListener('click', function() {
+          const index = parseInt(this.dataset.index);
+          const meta = chart.getDatasetMeta(index);
+          
+          meta.hidden = !meta.hidden;
+          chart.update();
+          
+          if (meta.hidden) {
+            this.style.opacity = '0.5';
+          } else {
+            this.style.opacity = '1';
+          }
+        });
+      });
+    }
+
+    async function fetchAndRenderChart() {
+      const namespace = document.getElementById("namespace").value;
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+      if (!namespace || !start || !end) return;
+
+      try {
+         const query = `container_memory_rss{namespace="${namespace}"}`;
+        const url = `http://raphtory03:9090/api/v1/query_range?query=${encodeURIComponent(query)}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}&step=1s`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        podSeriesData = [];
+        
+        console.log("Raw Prometheus data:", data.data.result); // Debug log
+        
+        for (const series of data.data.result) {
+          const pod = series.metric.pod;
+          const instance = series.metric.instance || "-";
+          if (!pod) {
+            console.warn(`Missing pod label for metric:`, series.metric);
+            showNotification("Some metrics are missing pod labels.", false);
+            continue;
+          }
+          const rates = series.values.map(([ts, val]) => ({
+            timestamp: new Date(ts * 1000),
+            rate: parseFloat(val)
+          })).filter(v => !isNaN(v.rate));
+
+          podSeriesData.push({ pod, instance, rates });
+          allPods.add(pod);
+        }
+        
+        updatePodSelector();
+        document.getElementById('chartContainer').style.display = 'none';
+        showNotification("Data loaded. Please select pods to display the graph.", true);
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+        showNotification("Error fetching chart data.", false);
+      }
+    }
+
+    function updateChartColors() {
+      if (!chart) return;
+      const chartText = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim();
+      const chartGrid = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
+      const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+      
+      chart.options.plugins.title.color = chartText;
+      chart.options.scales.x.title.color = chartText;
+      chart.options.scales.x.ticks.color = chartText;
+      chart.options.scales.x.grid.color = chartGrid;
+      chart.options.scales.y.title.color = chartText;
+      chart.options.scales.y.ticks.color = chartText;
+      chart.options.scales.y.grid.color = chartGrid;
+      chart.options.plugins.tooltip.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim();
+      chart.options.plugins.tooltip.titleColor = chartText;
+      chart.options.plugins.tooltip.bodyColor = chartText;
+      chart.options.plugins.tooltip.borderColor = borderColor;
+      chart.update();
+    }
+
+    function initPaginationControls() {
+      document.getElementById('rowsPerPage').addEventListener('change', (e) => {
+        rowsPerPage = parseInt(e.target.value);
+        currentPage = 1;
+        updateTable();
+      });
+
+      document.getElementById('firstPage').addEventListener('click', () => {
+        currentPage = 1;
+        updateTable();
+      });
+
+      document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          updateTable();
+        }
+      });
+
+      document.getElementById('nextPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          updateTable();
+        }
+      });
+
+      document.getElementById('lastPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+        currentPage = totalPages;
+        updateTable();
+      });
+    }
+
+    function updateTable() {
+      const tableBody = document.getElementById('tableBody');
+      tableBody.innerHTML = '';
+
+      if (filteredData.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan='5'>No data available</td></tr>`;
+        updatePaginationControls();
+        return;
+      }
+
+      const totalPages = rowsPerPage === 0 ? 1 : Math.ceil(filteredData.length / rowsPerPage);
+      const startIdx = (currentPage - 1) * rowsPerPage;
+      const endIdx = rowsPerPage === 0 ? filteredData.length : startIdx + rowsPerPage;
+      const pageData = filteredData.slice(startIdx, endIdx);
+
+      pageData.forEach(item => {
+        const row = document.createElement("tr");
+        row.innerHTML = ` 
+          <td>${item.timestamp.toLocaleString()}</td>
+          <td>${item.pod}</td>
+          <td>${item.container}</td>
+          <td>${item.instance}</td>
+          <td>${item.value}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+
+      updatePaginationControls();
+    }
+
+    function updatePaginationControls() {
+      const totalPages = rowsPerPage === 0 ? 1 : Math.ceil(filteredData.length / rowsPerPage);
+      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+      
+      document.getElementById('firstPage').disabled = currentPage <= 1;
+      document.getElementById('prevPage').disabled = currentPage <= 1;
+      document.getElementById('nextPage').disabled = currentPage >= totalPages;
+      document.getElementById('lastPage').disabled = currentPage >= totalPages;
+    }
+
+    async function fetchNamespaces() {
+      const url = 'http://raphtory03:9090/api/v1/label/namespace/values';
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || !data.data) {
+          console.error("No namespaces found.");
+          showNotification("Error fetching namespaces.", false);
+          return;
+        }
+
+        const namespaces = data.data;
+        const namespaceSelect = document.getElementById("namespace");
+        namespaceSelect.innerHTML = '<option value="">Select Namespace</option>';
+        namespaces.forEach(namespace => {
+          const option = document.createElement("option");
+          option.value = namespace;
+          option.textContent = namespace;
+          namespaceSelect.appendChild(option);
+        });
+
+        setDefaultDatetimes();
+        initPaginationControls();
+      } catch (error) {
+        console.error("Failed to fetch namespaces:", error);
+        showNotification("Error fetching namespaces.", false);
+      }
+    }
+
+    function setDefaultDatetimes() {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000));
+      
+      document.getElementById('start').value = formatDateTimeLocal(oneHourAgo);
+      document.getElementById('end').value = formatDateTimeLocal(now);
+    }
+
+    function formatDateTimeLocal(date) {
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+    }
+
+    async function fetchData() {
+      const namespace = document.getElementById("namespace").value;
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+      if (!namespace || !start || !end) {
+        showNotification("Please fill in all fields: namespace, start, and end datetime.", false);
+        return;
+      }
+
+      const btn = document.querySelector('.fetch-btn');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
+      try {
+                  const query = `container_memory_rss{namespace="${namespace}"}`;
+        const url = `http://raphtory03:9090/api/v1/query_range?query=${encodeURIComponent(query)}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}&step=15s`;
+  
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const results = data.data.result;
+        const tableBody = document.getElementById("tableBody");
+
+        if (!results.length) {
+          allData = [];
+          filteredData = [];
+          updateTable();
+          showNotification("No data found for selected range.", false);
+          return;
+        }
+
+        allData = [];
+        allPods.clear();
+        results.forEach(item => {
+          const pod = item.metric.pod;
+          const container = item.metric.container || "-";
+          const instance = item.metric.instance || "-";
+          if (!pod) {
+            console.warn(`Missing pod label for metric:`, item.metric);
+            showNotification("Some metrics are missing pod labels.", false);
+            return;
+          }
+          allPods.add(pod);
+
+          item.values.forEach(([timestamp, value]) => {
+            const date = new Date(timestamp * 1000);
+            allData.push({
+              timestamp: date,
+              pod,
+              container,
+              instance,
+              value: parseFloat(value).toFixed(6)
+            });
+          });
+        });
+
+        allData.sort((a, b) => a.timestamp - b.timestamp);
+        filteredData = [...allData];
+
+        currentPage = 1;
+        updateTable();
+        await fetchAndRenderChart();
+        showNotification(`Loaded ${filteredData.length} records successfully.`, true);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        showNotification("Error fetching data. Check console for details.", false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load Data';
+      }
+    }
+
+    function downloadCSV() {
+      if (filteredData.length === 0) {
+        showNotification("No data to download.", false);
+        return;
+      }
+
+      const headers = ['Timestamp', 'Pod', 'Container', 'Instance', ' Memory RSS (MB)'];
+      let csv = headers.join(',') + '\n';
+
+      filteredData.forEach(item => {
+        const row = [
+          `"${item.timestamp.toLocaleString()}"`,
+          `"${item.pod}"`,
+          `"${item.container}"`,
+          `"${item.instance}"`,
+          `"${item.value}"`
+        ];
+        csv += row.join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'memory_rss.csv');
+      a.click();
+      showNotification("CSV download started.", true);
+    }
+
+    window.onload = fetchNamespaces;
+  </script>
+</body>
+</html>

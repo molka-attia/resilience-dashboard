@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kubernetes Microservice Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
+  <style>
+    :root {
+      --primary: #1867b7;
+      --secondary: #A8A5E6;
+      --accent: #FF7675;
+      --bg: #0F0F1E;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --sidebar-bg: rgba(16, 16, 32, 0.95);
+      --text-color: #fff;
+      --input-bg: rgba(0, 0, 0, 0.3);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --nav-hover: rgba(108, 92, 231, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      --table-bg: rgba(0, 0, 0, 0.3);
+      --scrollbar-thumb: rgba(108, 92, 231, 0.5);
+      --scrollbar-track: transparent;
+      --pagination-active: #1867b7;
+      --pagination-hover: rgba(24, 103, 183, 0.1);
+      --chart-bg: rgba(0, 0, 0, 0.3);
+      --chart-text: #fff;
+      --chart-grid: rgba(255, 255, 255, 0.1);
+      --chart-legend-text: #fff;
+      --detail-bg: rgba(0, 0, 0, 0.3);
+      --detail-label: rgba(255, 255, 255, 0.7);
+      --detail-value-bg: rgba(255, 255, 255, 0.1);
+      --alert-color: #FF0000;
+    }
+
+    .light-mode {
+      --primary: #1867b7;
+      --secondary: #7986CB;
+      --accent: #FF5252;
+      --bg: #f5f5f5;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --sidebar-bg: rgba(255, 255, 255, 0.95);
+      --text-color: #333;
+      --input-bg: rgba(0, 0, 0, 0.05);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --nav-hover: rgba(92, 107, 192, 0.1);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+      --table-bg: #fff;
+      --scrollbar-thumb: rgba(92, 107, 192, 0.5);
+      --pagination-hover: rgba(24, 103, 183, 0.05);
+      --chart-bg: #fff;
+      --chart-text: #333;
+      --chart-grid: rgba(0, 0, 0, 0.1);
+      --chart-legend-text: #333;
+      --detail-bg: #fff;
+      --detail-label: rgba(0, 0, 0, 0.7);
+      --detail-value-bg: rgba(0, 0, 0, 0.05);
+      --alert-color: #FF0000;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-color);
+      min-height: 100vh;
+      transition: all 0.3s ease;
+    }
+
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 280px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      padding: 2rem 1.5rem;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar h1 {
+      font-size: 1.8rem;
+      margin-bottom: 2.5rem;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .nav-links {
+      flex-grow: 1;
+    }
+
+    .nav-link {
+      color: var(--text-color);
+      opacity: 0.9;
+      text-decoration: none;
+      margin: 0.8rem 0;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+
+    .nav-link:hover {
+      background: var(--nav-hover);
+      transform: translateX(8px);
+      opacity: 1;
+    }
+
+    .nav-link:hover::before {
+      width: 100%;
+    }
+
+    .theme-toggle {
+      background: var(--card-bg);
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: auto;
+      margin-bottom: 1rem;
+    }
+
+    .theme-toggle:hover {
+      background: var(--nav-hover);
+    }
+
+    .copyright {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.6;
+      text-align: center;
+    }
+
+    .main-content {
+      margin-left: 280px;
+      flex-grow: 1;
+      padding: 2rem;
+    }
+
+    .page-header {
+      color: var(--text-color);
+      margin-bottom: 1rem;
+      font-weight: 600;
+      font-size: 1.8rem;
+    }
+
+    .visualization-container {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    #cy {
+      width: 75%;
+      height: 500px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    #side-panel {
+      width: 23%;
+      height: 500px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--card-bg);
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      color: var(--text-color);
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #details {
+      padding: 1.5rem;
+      display: none;
+    }
+
+    .detail-item {
+      margin-bottom: 1.2rem;
+    }
+
+    .detail-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--detail-label);
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .detail-value {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      font-weight: 500;
+      padding: 0.75rem;
+      background: var(--detail-value-bg);
+      border-radius: 6px;
+      display: block;
+      width: 100%;
+    }
+
+    .detail-value.alert {
+      color: var(--alert-color);
+    }
+
+    .clear-btn {
+      margin-top: 1.5rem;
+      padding: 0.75rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+
+    .clear-btn:hover {
+      background: #e74c3c;
+    }
+
+    .loading {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-color);
+      opacity: 0.7;
+    }
+
+    #metrics-container {
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    #metricsTable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #metricsTable th, #metricsTable td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    #metricsTable th {
+      background: var(--input-bg);
+      color: var(--text-color);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    #metricsTable tr:hover {
+      background: var(--nav-hover);
+    }
+
+    #metricsTable td {
+      color: var(--text-color);
+    }
+
+    #metricsTable td.alert {
+      color: var(--alert-color);
+    }
+
+    .no-data {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-color);
+      opacity: 0.7;
+      font-style: italic;
+    }
+
+    .selected-edge {
+      line-color: var(--accent) !important;
+      target-arrow-color: var(--accent) !important;
+      width: 4px !important;
+      z-index: 999 !important;
+    }
+
+    .namespace-select {
+      margin: 1rem 0.5rem 1rem 0;
+      padding: 0.8rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-color);
+      width: 200px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .namespace-select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .time-window-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .time-window-btn {
+      padding: 0.8rem 1.2rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-color);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .time-window-btn:hover {
+      background: var(--nav-hover);
+    }
+
+    .time-window-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
+      color: #fff;
+      z-index: 1000;
+      transition: opacity 0.3s ease;
+    }
+
+    .notification.success {
+      background: #28a745;
+    }
+
+    .notification.error {
+      background: #e74c3c;
+    }
+
+    .threshold-form {
+      background: var(--card-bg);
+      padding: 2rem;
+      width: 100%;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.15);
+      border: 1px solid var(--border-color);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .threshold-form h2 {
+      color: var(--text-color);
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      grid-column: 1 / -1;
+      font-weight: 600;
+    }
+
+    .threshold-form label {
+      display: block;
+      font-size: 0.95rem;
+      color: var(--text-color);
+      margin-bottom: 0.75rem;
+      font-weight: 500;
+    }
+
+    .threshold-form input {
+      width: 100%;
+      padding: 0.85rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--input-bg);
+      color: var(--text-color);
+      font-size: 0.95rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .threshold-form input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 8px rgba(24, 103, 183, 0.3);
+    }
+
+    .threshold-form button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 0.85rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      grid-column: 1 / -1;
+      justify-self: start;
+      max-width: 200px;
+    }
+
+    .threshold-form button:hover {
+      background-color: #218838;
+      transform: translateY(-2px);
+    }
+
+    .threshold-form #message {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: var(--text-color);
+      grid-column: 1 / -1;
+      text-align: center;
+    }
+
+    @media (max-width: 1200px) {
+      .visualization-container {
+        flex-direction: column;
+      }
+
+      #cy, #side-panel {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding: 1rem;
+      }
+
+      .namespace-select {
+        width: 100%;
+      }
+
+      .time-window-btn {
+        flex: 1 1 auto;
+      }
+
+      .threshold-form {
+        grid-template-columns: 1fr;
+      }
+
+      .threshold-form button {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="sidebar">
+    <div class="nav-links">
+      <h1>⚡ K8s Chaos</h1>
+      <a href="index.html" class="nav-link">
+        <span>📊 Chaos Graph</span>
+      </a>
+      <a href="kpi.html" class="nav-link">
+        <span>📈 KPI Dashboard</span>
+      </a>
+      <a href="faultsinjections.html" class="nav-link">
+        <span>🧪 Fault Injection</span>
+      </a>
+      <a href="metrics-dash.html" class="nav-link">
+        <span>📏 CPU Usage</span>
+      </a>
+      <a href="metrics-system-usage.html" class="nav-link">
+        <span>🖥️ CPU System</span>
+      </a>
+      <a href="memory_working_set_bytes.html" class="nav-link">
+        <span>🎯 Active Memory</span>
+      </a>
+      <a href="container_network_receive_bytes.html" class="nav-link">
+        <span>🌐 Network Receive</span>
+      </a>
+      <a href="network_transmit_packets.html" class="nav-link">
+        <span>📡 Network Transmit</span>
+      </a>
+      
+      <a href="events.html" class="nav-link">
+        <span>📋 Events</span>
+      </a>
+    </div>
+      <button class="theme-toggle" id="themeToggle">
+        <span>🌓</span> <span>Toggle Theme</span>
+      </button>
+      <div class="copyright">© 2025 UPM Kubernetes Dashboard</div>
+    </div>
+
+    <div class="main-content">
+      <h1 class="page-header">Microservice Connections</h1>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <select id="namespace" class="namespace-select">
+          <option value="">Select Namespace</option>
+        </select>
+        <div class="time-window-container">
+          <button class="time-window-btn" data-seconds="15">15s</button>
+          <button class="time-window-btn" data-seconds="30">30s</button>
+          <button class="time-window-btn" data-seconds="45">45s</button>
+          <button class="time-window-btn" data-seconds="60">60s</button>
+          <button class="time-window-btn" data-seconds="90">90s</button>
+          <button class="time-window-btn" data-seconds="120">120s</button>
+          <button class="time-window-btn" data-seconds="150">150s</button>
+          <button class="time-window-btn" data-seconds="180">180s</button>
+          <button class="time-window-btn" data-seconds="210">210s</button>
+          <button class="time-window-btn" data-seconds="240">240s</button>
+        </div>
+      </div>
+
+      <div class="threshold-form">
+        <h2>Configure Threshold Alerts</h2>
+        <div class="form-field">
+          <label for="request-rate-threshold">Request Rate Threshold (req/min)</label>
+          <input type="number" id="request-rate-threshold" placeholder="e.g., 100" required>
+        </div>
+        <div class="form-field">
+          <label for="response-time-threshold">Response Time Threshold (ms)</label>
+          <input type="number" id="response-time-threshold" placeholder="e.g., 500" required>
+        </div>
+        <div class="form-field">
+          <label for="error-rate-threshold">Error Rate Threshold (%)</label>
+          <input type="number" id="error-rate-threshold" placeholder="e.g., 5" required>
+        </div>
+        <div class="form-field">
+          <label for="email-to">Alert Email Recipient</label>
+          <input type="email" id="email-to" placeholder="e.g., admin@example.com" required>
+        </div>
+        <button type="submit" onclick="applyThresholds()">Apply Thresholds</button>
+        <div id="message"></div>
+      </div>
+
+      <div class="visualization-container">
+        <div id="cy"></div>
+        <div id="side-panel">
+          <div class="panel-header">
+            <h3>Connection Details</h3>
+          </div>
+          <div id="details">
+            <div class="detail-item">
+              <span class="detail-label">Source Workload</span>
+              <div class="detail-value" id="source"></div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Destination Workload</span>
+              <div class="detail-value" id="destination"></div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Request Rate</span>
+              <div class="detail-value" id="request-rate"></div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Response Time</span>
+              <div class="detail-value" id="response-time"></div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Error Rate</span>
+              <div class="detail-value" id="error-rate"></div>
+            </div>
+            <button class="clear-btn" onclick="clearSelection()">Clear Selection</button>
+          </div>
+          <div class="loading">Loading service connections...</div>
+        </div>
+      </div>
+
+      <div id="metrics-container">
+        <table id="metricsTable">
+          <thead>
+            <tr>
+              <th>Source Workload</th>
+              <th>Destination Workload</th>
+              <th>Request Rate (req/min)</th>
+              <th>Response Time (ms)</th>
+              <th>Error Rate (%)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Cytoscape
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements: [],
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'label': 'data(id)',
+            'width': 60,
+            'height': 60,
+            'background-color': '#4CAF50',
+            'color': '#fff',
+            'text-valign': 'center',
+            'text-outline-width': 2,
+            'text-outline-color': '#4CAF50',
+            'font-size': '12px',
+            'border-width': 2,
+            'border-color': '#ffffff'
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 3,
+            'line-color': 'var(--secondary)',
+            'curve-style': 'bezier',
+            'target-arrow-shape': 'triangle',
+            'target-arrow-color': 'var(--secondary)',
+            'label': 'data(label)',
+            'font-size': '10px',
+            'color': 'var(--text-color)',
+            'text-outline-color': 'var(--bg)',
+            'text-outline-width': 1,
+            'text-background-color': 'var(--secondary)',
+            'text-background-opacity': 0.7
+          }
+        },
+        {
+          selector: 'edge:hover',
+          style: {
+            'width': 4,
+            'line-color': 'var(--primary)',
+            'target-arrow-color': 'var(--primary)',
+            'label': 'data(hoverLabel)',
+            'font-size': '12px',
+            'color': '#fff',
+            'text-outline-width': 2
+          }
+        },
+        {
+          selector: '.selected-edge',
+          style: {
+            'line-color': 'var(--accent)',
+            'target-arrow-color': 'var(--accent)',
+            'width': 4,
+            'label': 'data(hoverLabel)',
+            'font-size': '12px',
+            'z-index': 999
+          }
+        },
+        {
+          selector: '.threshold-exceeded',
+          style: {
+            'line-color': 'var(--alert-color)',
+            'target-arrow-color': 'var(--alert-color)',
+            'width': 3
+          }
+        }
+      ],
+      layout: {
+        name: 'cose',
+        fit: true,
+        padding: 30,
+        animate: true,
+        animationDuration: 1000
+      }
+    });
+
+    let currentlySelectedEdge = null;
+    let selectedTimeWindow = 60; // Default time window (60s)
+    let thresholds = {
+      requestRate: null,
+      responseTime: null,
+      errorRate: null,
+      emailTo: null
+    };
+
+    function clearSelection() {
+      if (currentlySelectedEdge) {
+        currentlySelectedEdge.removeClass('selected-edge');
+        currentlySelectedEdge = null;
+      }
+      document.getElementById('details').style.display = 'none';
+      document.querySelector('.loading').style.display = 'block';
+    }
+
+    function showNotification(message, isSuccess) {
+      const notification = document.createElement('div');
+      notification.className = `notification ${isSuccess ? 'success' : 'error'}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    async function sendThresholdAlert(source, destination, metric, value, threshold) {
+      const emailTo = thresholds.emailTo;
+      if (!emailTo) {
+        console.warn('No email recipient provided, skipping email alert.');
+        showNotification('No email recipient provided.', false);
+        return;
+      }
+
+      const subject = `Threshold Alert: ${metric} Exceeded`;
+      const body = `The ${metric} between ${source} and ${destination} has exceeded the threshold of ${threshold}. Current value: ${value}.`;
+
+      const messageEl = document.getElementById('message');
+
+      try {
+        const response = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            to: emailTo,
+            subject,
+            body
+          })
+        });
+
+        if (response.ok) {
+          messageEl.textContent = '✅ Email sent successfully!';
+          messageEl.style.color = '#28a745';
+          showNotification('Alert email sent successfully.', true);
+        } else {
+          const errorText = await response.text();
+          messageEl.textContent = '❌ Failed to send email.';
+          messageEl.style.color = '#dc3545';
+          showNotification(`Failed to send alert email: ${errorText || 'Unknown server error'}`, false);
+        }
+      } catch (error) {
+        console.error('Error sending email:', error.message, error.stack);
+        messageEl.textContent = '❌ Failed to send email.';
+        messageEl.style.color = '#dc3545';
+        showNotification(`Error sending alert email: ${error.message}`, false);
+      }
+    }
+
+    function setDefaultTimeWindow() {
+      const buttons = document.querySelectorAll('.time-window-btn');
+      buttons.forEach(btn => {
+        if (btn.getAttribute('data-seconds') === String(selectedTimeWindow)) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    async function applyThresholds() {
+      thresholds.requestRate = parseFloat(document.getElementById('request-rate-threshold').value) || null;
+      thresholds.responseTime = parseFloat(document.getElementById('response-time-threshold').value) || null;
+      thresholds.errorRate = parseFloat(document.getElementById('error-rate-threshold').value) || null;
+      thresholds.emailTo = document.getElementById('email-to').value || null;
+      await fetchMetrics();
+      showNotification('Thresholds applied successfully.', true);
+    }
+
+    async function fetchNamespaces() {
+      const url = 'http://raphtory03:9090/api/v1/label/namespace/values';
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || !data.data) {
+          console.error("No namespaces found.");
+          showNotification("Error fetching namespaces.", false);
+          return;
+        }
+
+        const namespaces = data.data;
+        const namespaceSelect = document.getElementById("namespace");
+        namespaceSelect.innerHTML = '<option value="">Select Namespace</option>';
+        namespaces.forEach(namespace => {
+          const option = document.createElement("option");
+          option.value = namespace;
+          option.textContent = namespace;
+          namespaceSelect.appendChild(option);
+        });
+
+        setDefaultTimeWindow();
+      } catch (error) {
+        console.error("Failed to fetch namespaces:", error);
+        showNotification("Error fetching namespaces.", false);
+      }
+    }
+
+    async function fetchMetrics() {
+      const namespaceSelect = document.getElementById('namespace');
+      const namespace = namespaceSelect.value || 'molka2';
+      const end = new Date();
+      const start = new Date(end.getTime() - selectedTimeWindow * 1000);
+      const startISO = start.toISOString();
+      const endISO = end.toISOString();
+
+      const url = `/api/graph-data2?namespace=${namespace}&timeWindow=${selectedTimeWindow}`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        cy.elements().remove();
+
+        const tableBody = document.querySelector('#metricsTable tbody');
+        tableBody.innerHTML = '';
+
+        if (data.length === 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td colspan="5" class="no-data">No connection data available</td>`;
+          tableBody.appendChild(row);
+        } else {
+          const nodes = new Set();
+          const edges = [];
+
+          data.forEach(row => {
+            const tr = document.createElement('tr');
+            const requestRateClass = thresholds.requestRate && row.request_rate >= thresholds.requestRate ? 'alert' : '';
+            const responseTimeClass = thresholds.responseTime && row.response_time_ms >= thresholds.responseTime ? 'alert' : '';
+            const errorRateClass = thresholds.errorRate && row.error_rate >= thresholds.errorRate ? 'alert' : '';
+            tr.innerHTML = `
+              <td>${row.source}</td>
+              <td>${row.destination}</td>
+              <td class="${requestRateClass}">${row.request_rate}</td>
+              <td class="${responseTimeClass}">${row.response_time_ms}</td>
+              <td class="${errorRateClass}">${row.error_rate}</td>
+            `;
+            tableBody.appendChild(tr);
+
+            nodes.add(row.source);
+            nodes.add(row.destination);
+
+            const isThresholdExceeded = (
+              (thresholds.requestRate && row.request_rate >= thresholds.requestRate) ||
+              (thresholds.responseTime && row.response_time_ms >= thresholds.responseTime) ||
+              (thresholds.errorRate && row.error_rate >= thresholds.errorRate)
+            );
+
+            if (isThresholdExceeded) {
+              if (thresholds.requestRate && row.request_rate >= thresholds.requestRate) {
+                sendThresholdAlert(row.source, row.destination, 'Request Rate', row.request_rate, thresholds.requestRate);
+              }
+              if (thresholds.responseTime && row.response_time_ms >= thresholds.responseTime) {
+                sendThresholdAlert(row.source, row.destination, 'Response Time', row.response_time_ms, thresholds.responseTime);
+              }
+              if (thresholds.errorRate && row.error_rate >= thresholds.errorRate) {
+                sendThresholdAlert(row.source, row.destination, 'Error Rate', row.error_rate, thresholds.errorRate);
+              }
+            }
+
+            edges.push({
+              data: {
+                source: row.source,
+                target: row.destination,
+                label: `${row.request_rate} req/min`,
+                hoverLabel: `${row.request_rate} req/min • ${row.response_time_ms} ms • ${row.error_rate}% err`,
+                request_rate: row.request_rate,
+                response_time_ms: row.response_time_ms,
+                error_rate: row.error_rate,
+                thresholdExceeded: isThresholdExceeded
+              }
+            });
+          });
+
+          Array.from(nodes).forEach(node => {
+            cy.add({
+              group: 'nodes',
+              data: { id: node }
+            });
+          });
+
+          edges.forEach(edge => {
+            const edgeElement = cy.add({
+              group: 'edges',
+              data: {
+                id: `${edge.data.source}-${edge.data.target}`,
+                source: edge.data.source,
+                target: edge.data.target,
+                label: edge.data.label,
+                hoverLabel: edge.data.hoverLabel,
+                request_rate: edge.data.request_rate,
+                response_time_ms: edge.data.response_time_ms,
+                error_rate: edge.data.error_rate,
+                thresholdExceeded: edge.data.thresholdExceeded
+              }
+            });
+
+            if (edge.data.thresholdExceeded) {
+              edgeElement.addClass('threshold-exceeded');
+            }
+          });
+
+          cy.layout({
+            name: 'cose',
+            fit: true,
+            padding: 30,
+            animate: true,
+            animationDuration: 1000
+          }).run();
+        }
+
+        document.querySelector('.loading').style.display = 'none';
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        document.querySelector('.loading').textContent = 'Error loading data. Please try again.';
+        document.querySelector('#metricsTable tbody').innerHTML =
+          `<tr><td colspan="5" class="no-data">Error loading data</td></tr>`;
+        showNotification('Error fetching metrics data.', false);
+      }
+    }
+
+    cy.on('tap', 'edge', function(event) {
+      const edge = event.target;
+
+      if (currentlySelectedEdge) {
+        currentlySelectedEdge.removeClass('selected-edge');
+      }
+
+      edge.addClass('selected-edge');
+      currentlySelectedEdge = edge;
+
+      const edgeData = edge.data();
+
+      document.getElementById('details').style.display = 'block';
+      document.querySelector('.loading').style.display = 'none';
+
+      const requestRateEl = document.getElementById('request-rate');
+      const responseTimeEl = document.getElementById('response-time');
+      const errorRateEl = document.getElementById('error-rate');
+
+      requestRateEl.textContent = edgeData.request_rate + ' req/min';
+      responseTimeEl.textContent = edgeData.response_time_ms + ' ms';
+      errorRateEl.textContent = edgeData.error_rate + '%';
+
+      requestRateEl.classList.remove('alert');
+      responseTimeEl.classList.remove('alert');
+      errorRateEl.classList.remove('alert');
+
+      if (thresholds.requestRate && edgeData.request_rate >= thresholds.requestRate) {
+        requestRateEl.classList.add('alert');
+        edge.addClass('threshold-exceeded');
+      } else {
+        edge.removeClass('threshold-exceeded');
+      }
+      if (thresholds.responseTime && edgeData.response_time_ms >= thresholds.responseTime) {
+        responseTimeEl.classList.add('alert');
+        edge.addClass('threshold-exceeded');
+      } else if (!edge.hasClass('threshold-exceeded')) {
+        edge.removeClass('threshold-exceeded');
+      }
+      if (thresholds.errorRate && edgeData.error_rate >= thresholds.errorRate) {
+        errorRateEl.classList.add('alert');
+        edge.addClass('threshold-exceeded');
+      } else if (!edge.hasClass('threshold-exceeded')) {
+        edge.removeClass('threshold-exceeded');
+      }
+
+      document.getElementById('source').textContent = edgeData.source;
+      document.getElementById('destination').textContent = edgeData.target;
+    });
+
+    cy.on('tap', function(event) {
+      if (event.target === cy) {
+        clearSelection();
+      }
+    });
+
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      localStorage.setItem('lightMode', isLight);
+      cy.style().update();
+    });
+
+    if (localStorage.getItem('lightMode') === 'true') {
+      document.body.classList.add('light-mode');
+    }
+
+    document.getElementById('namespace').addEventListener('change', () => {
+      clearSelection();
+      fetchMetrics();
+    });
+
+    document.querySelectorAll('.time-window-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.time-window-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedTimeWindow = parseInt(btn.getAttribute('data-seconds'), 10);
+        clearSelection();
+        fetchMetrics();
+      });
+    });
+
+    window.onload = () => {
+      fetchNamespaces();
+      fetchMetrics();
+    };
+  </script>
+</body>
+</html>
