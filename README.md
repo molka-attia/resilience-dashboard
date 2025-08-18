@@ -52,3 +52,7 @@ Before running the Resilience Dashboard and conducting fault injection experimen
 
 > **⚠️ Note**: Ensure that cluster nodes allow execution of these tools and that you have sufficient privileges to apply them
 
+### Video Demo
+Watch a demo of the Resilience Dashboard in action to see how it monitors and visualizes microservice performance under fault conditions.  
+[Download Demo Video](https://github.com/molka-attia/resilience-dashboard/releases/download/v1.0.0/demo-video.mp4)
+
