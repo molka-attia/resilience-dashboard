@@ -54,5 +54,5 @@ Before running the Resilience Dashboard and conducting fault injection experimen
 
 ### Video Demo
 Watch a demo of the Resilience Dashboard in action to see how it monitors and visualizes microservice performance under fault conditions.  
-[Download Demo Video](https://github.com/molka-attia/resilience-dashboard/releases/download/v1.0.0/demo-video.mp4)
+[Download Demo Video](https://github.com/molka-attia/resilience-dashboard/releases/download/v1.0.0/resilience-dashboard-demo.mp4)
 
